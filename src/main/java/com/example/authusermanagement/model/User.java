@@ -5,10 +5,18 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "users")
+@NamedQueries({
+        @NamedQuery(name = "User.findByUsername",
+                query = "SELECT u FROM User u WHERE u.username = :username"),
+        @NamedQuery(name = "User.findByEmail",
+                query = "SELECT u FROM User u WHERE u.email = :email"),
+        @NamedQuery(name = "User.findByRole",
+                query = "SELECT u FROM User u WHERE u.role = :role")
+})
 public class User{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private String id;
+    private Long id;
 
     @Column(unique = true)
     private String username;
@@ -37,11 +45,11 @@ public class User{
         this.role = role;
     }
 
-    public String getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -84,4 +92,13 @@ public class User{
     public void setRole(Role role) {
         this.role = role;
     }
+
+    @PrePersist
+    @PreUpdate
+    private void validateBeforeSave() {
+        if (role == Role.RESTAURANT_REPRESENTATIVE && (companyName == null || companyName.isEmpty())) {
+            throw new IllegalStateException("Company name is required for restaurant representatives");
+        }
+    }
+
 }

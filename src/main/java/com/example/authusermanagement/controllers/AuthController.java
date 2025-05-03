@@ -1,5 +1,6 @@
 package com.example.authusermanagement.controllers;
 
+import com.example.authusermanagement.DTO.RegistrationResponse;
 import com.example.authusermanagement.model.Role;
 import com.example.authusermanagement.model.User;
 import com.example.authusermanagement.service.UserService;
@@ -22,33 +23,79 @@ public class AuthController {
 
     @POST
     @Path("/register/customer")
-    public Response registerCustomer(CustomerRegistrationRequest request) {
+    public Response registerCustomer(
+            @QueryParam("username") String username,
+            @QueryParam("password") String password,
+            @QueryParam("email") String email) {
         return userService.createUser(
-                request.getUsername(),
-                request.getPassword(),
-                request.getEmail(),
+                username,
+                password,
+                email,
                 null,
                 Role.CUSTOMER
         );
     }
 
     @POST
-    @Path("/register/restaurant")
-    public Response registerRestaurantRep(RestaurantRegistrationRequest request) {
-        return userService.createUser(
-                request.getUsername(),
-                request.getPassword(),
-                request.getEmail(),
-                request.getCompanyName(),
-                Role.RESTAURANT_REPRESENTATIVE
-        );
+    @Path("/login")
+    public Response login(
+            @QueryParam("username") String username,
+            @QueryParam("password") String password) {
+        return userService.authenticateUser(username, password);
     }
 
     @POST
-    @Path("/login")
-    public Response login(LoginRequest request) {
-        return userService.authenticateUser(request.getUsername(), request.getPassword());
+    @Path("/register/restaurant")
+    public Response registerRestaurantRep(
+            @HeaderParam("Authorization") String authHeader,
+            @QueryParam("username") String username,
+            @QueryParam("email") String email,
+            @QueryParam("companyName") String companyName) {
+        try {
+            // Check if Authorization header exists
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Authentication required").build();
+            }
+
+            // Extract token from Authorization header
+            String token = authHeader.substring("Bearer ".length());
+
+            // Validate token and check if admin
+            String role = Jwt.getRole(token);
+            if (!role.equals(Role.ADMIN.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Only administrators can create restaurant representatives").build();
+            }
+
+            // Generate a random password
+            String generatedPassword = userService.generateRandomPassword();
+
+            // Create the user with the generated password
+            Response response = userService.createUser(
+                    username,
+                    generatedPassword,
+                    email,
+                    companyName,
+                    Role.RESTAURANT_REPRESENTATIVE
+            );
+
+            // If user creation was successful, return the generated password
+            if (response.getStatus() == Response.Status.CREATED.getStatusCode()) {
+                return Response.status(Response.Status.CREATED)
+                        .entity(new RegistrationResponse("Restaurant representative created successfully", generatedPassword))
+                        .build();
+            }
+
+            // If there was an error, return the original response
+            return response;
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Invalid token or authorization error: " + e.getMessage()).build();
+        }
     }
+
 
     @GET
     @Path("/customers")
@@ -94,43 +141,4 @@ public class AuthController {
         }
     }
 
-    // Request classes for JSON binding
-    public static class LoginRequest {
-        private String username;
-        private String password;
-
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-    }
-
-    public static class CustomerRegistrationRequest {
-        private String username;
-        private String password;
-        private String email;
-
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-    }
-
-    public static class RestaurantRegistrationRequest {
-        private String username;
-        private String password;
-        private String email;
-        private String companyName;
-
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        public String getCompanyName() { return companyName; }
-        public void setCompanyName(String companyName) { this.companyName = companyName; }
-    }
 }

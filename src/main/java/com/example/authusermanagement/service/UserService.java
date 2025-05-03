@@ -2,12 +2,12 @@ package com.example.authusermanagement.service;
 
 import com.example.authusermanagement.model.Role;
 import com.example.authusermanagement.model.User;
+import com.example.authusermanagement.utils.Jwt;
 import com.example.authusermanagement.utils.Security;
 import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.TypedQuery;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
@@ -21,86 +21,106 @@ public class UserService {
 
     public Response createUser(String username, String password, String email, String companyName, Role role) {
         try {
-            // Check if the username already exists
-            TypedQuery<User> query = entityManager.createQuery(
-                    "SELECT u FROM User u WHERE u.username = :username", User.class);
-            query.setParameter("username", username);
+            // Validate inputs
+            if (username == null || password == null || email == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Username, password, and email are required").build();
+            }
+
+            // Validate company name for restaurant representatives
+            if (role == Role.RESTAURANT_REPRESENTATIVE && (companyName == null || companyName.isEmpty())) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Company name is required for restaurant representatives").build();
+            }
+
+            // Check if username exists using named query
             try {
-                query.getSingleResult();
-                return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
-            } catch (NoResultException e) {
-                // Username is available, continue with user creation
+                entityManager.createNamedQuery("User.findByUsername", User.class)
+                        .setParameter("username", username)
+                        .getSingleResult();
+                return Response.status(Response.Status.CONFLICT)
+                        .entity("Username already exists").build();
+            } catch (NoResultException ignored) {
+                // Username doesn't exist, continue
+            }
+
+            // Check if email exists using named query
+            try {
+                entityManager.createNamedQuery("User.findByEmail", User.class)
+                        .setParameter("email", email)
+                        .getSingleResult();
+                return Response.status(Response.Status.CONFLICT)
+                        .entity("Email already exists").build();
+            } catch (NoResultException ignored) {
+                // Email doesn't exist, continue
             }
 
             // Encrypt the password
             String encryptedPassword = Security.encrypt(password);
+
+            // Create and persist user
             User user = new User(username, encryptedPassword, email, companyName, role);
-
-            // Generate ID if not set
-            if (user.getId() == null) {
-                user.setId(UUID.randomUUID().toString());
-            }
-
-            // Persist the user
             entityManager.persist(user);
             entityManager.flush();
 
-            return Response.status(Response.Status.CREATED).entity("User created successfully").build();
+            return Response.status(Response.Status.CREATED)
+                    .entity("User created successfully").build();
+
         } catch (Exception e) {
             e.printStackTrace();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Error creating user: " + e.getMessage()).build();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error creating user: " + e.getMessage()).build();
         }
     }
 
     public Response authenticateUser(String username, String password) {
         try {
-            TypedQuery<User> query = entityManager.createQuery(
-                    "SELECT u FROM User u WHERE u.username = :username", User.class);
-            query.setParameter("username", username);
-
+            // Find user by username using named query
             User user;
             try {
-                user = query.getSingleResult();
+                user = entityManager.createNamedQuery("User.findByUsername", User.class)
+                        .setParameter("username", username)
+                        .getSingleResult();
             } catch (NoResultException e) {
-                return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid credentials").build();
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Invalid credentials").build();
             }
 
             // Decrypt and compare passwords
             if (Security.decrypt(user.getPassword()).equals(password)) {
-                // Generate JWT token (we'll implement this next)
                 String token = generateToken(user);
                 return Response.ok().entity(token).build();
             } else {
-                return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid credentials").build();
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Invalid credentials").build();
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Authentication error").build();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Authentication error").build();
         }
-    }
-
-    // Method to generate random password for company reps
-    public String generateRandomPassword() {
-        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     // For admin to list all customers
     public List<User> getAllCustomers() {
-        return entityManager.createQuery("SELECT u FROM User u WHERE u.role = :role", User.class)
+        return entityManager.createNamedQuery("User.findByRole", User.class)
                 .setParameter("role", Role.CUSTOMER)
                 .getResultList();
     }
 
     // For admin to list all restaurant representatives
     public List<User> getAllRestaurantRepresentatives() {
-        return entityManager.createQuery("SELECT u FROM User u WHERE u.role = :role", User.class)
+        return entityManager.createNamedQuery("User.findByRole", User.class)
                 .setParameter("role", Role.RESTAURANT_REPRESENTATIVE)
                 .getResultList();
     }
 
-    // Generate JWT token (simplified - in a real app, use a proper JWT library)
+    // Generate JWT token
     private String generateToken(User user) {
-        // This is a placeholder - you should use a proper JWT library like jjwt
-        return "token_for_" + user.getUsername() + "_" + System.currentTimeMillis();
+        return Jwt.generateToken(user);
+    }
+
+    public String generateRandomPassword() {
+        return UUID.randomUUID().toString().substring(0, 8);
     }
 }
