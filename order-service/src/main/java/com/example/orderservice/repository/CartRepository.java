@@ -11,7 +11,7 @@ public class CartRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public Cart findByUserId(String userId) {
+    public Cart findByUserId(Long userId) {
         try {
             return entityManager.createQuery("SELECT c FROM Cart c WHERE c.userId = :userId", Cart.class)
                     .setParameter("userId", userId)

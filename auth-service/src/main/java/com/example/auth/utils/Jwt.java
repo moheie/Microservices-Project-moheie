@@ -66,7 +66,7 @@ public class Jwt {
         return validateToken(token).get("company", String.class);
     }
 
-    public static String getUserId(String token) {
-        return validateToken(token).get("userId", String.class);
+    public static Long getUserId(String token) {
+        return validateToken(token).get("userId", Long.class);
     }
 }

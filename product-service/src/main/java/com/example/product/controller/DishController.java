@@ -6,6 +6,7 @@ import com.example.product.utils.Roles;
 import com.example.product.service.DishService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
@@ -16,7 +17,10 @@ public class DishController {
     @Inject
     DishService dishService;
 
+    Roles ROLES;
+
     @Path("/create")
+    @POST
     public Response createDish(
             @HeaderParam("Authorization") String authHeader,
             @QueryParam("name") String name,
@@ -31,7 +35,7 @@ public class DishController {
 
             String token = authHeader.substring("Bearer ".length());
             String role = Jwt.getRole(token);
-            if (!role.equals(Roles.RESTAURANT_REPRESENTATIVE.toString())) {
+            if (!role.equals(ROLES.RESTAURANT_REPRESENTATIVE.toString())) {
                 return Response.status(Response.Status.FORBIDDEN)
                         .entity("Unauthorized access").build();
             }
@@ -59,4 +63,6 @@ public class DishController {
                     .entity("Error creating dish: " + e.getMessage()).build();
         }
     }
+    //TODO: add update and delete methods and get all dishes by company name
+
 }

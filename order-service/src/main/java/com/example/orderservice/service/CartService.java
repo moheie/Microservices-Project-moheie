@@ -13,11 +13,11 @@ public class CartService {
     private CartRepository cartRepository;
 
     private Cart currentCart;
-    private String currentUserId;
+    private Long currentUserId;
 
     public void initializeCart(String token) {
         // Extract userId from JWT token
-        String userId = Jwt.getUserId(token);
+        Long userId = Jwt.getUserId(token);
         this.currentUserId = userId;
 
         // Find or create user's cart
@@ -36,6 +36,7 @@ public class CartService {
         return this.currentCart;
     }
 
+    //TODO add multiples of same product
     public void addProductToCart(Long productId) {
         if (this.currentCart == null) {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
@@ -52,7 +53,7 @@ public class CartService {
         }
     }
 
-    public String getCurrentUserId() {
+    public Long getCurrentUserId() {
         return currentUserId;
     }
 
