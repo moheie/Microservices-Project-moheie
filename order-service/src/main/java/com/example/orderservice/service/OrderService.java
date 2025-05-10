@@ -52,7 +52,7 @@ public class OrderService {
     }
 
     public Order createOrderFromCart(String token) {
-        String userId = Jwt.getUserId(token);
+        Long userId = Jwt.getUserId(token);
         cartService.initializeCart(token);
         Cart cart = cartService.getCurrentCart();
 

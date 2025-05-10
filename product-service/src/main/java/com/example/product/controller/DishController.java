@@ -5,13 +5,13 @@ import com.example.product.utils.Jwt;
 import com.example.product.utils.Roles;
 import com.example.product.service.DishService;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/dish")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public class DishController {
 
     @Inject
@@ -64,5 +64,21 @@ public class DishController {
         }
     }
     //TODO: add update and delete methods and get all dishes by company name
+
+    @GET
+    @Path("/getDishes")
+    public Response getDishesByCompanyName(
+            @HeaderParam("Authorization") String authHeader, @QueryParam("companyName") String companyName) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Valid authentication token required").build();
+            }
+            return dishService.getDishesByCompanyName(companyName);
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving dishes: " + e.getMessage()).build();
+        }
+    }
 
 }

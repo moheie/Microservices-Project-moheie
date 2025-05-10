@@ -20,7 +20,7 @@ public class DishService {
     }
 
     //probably wont need this IDs are mainly used for database
-    public Response getDish(Long id) {
+    public Response getDishByID(Long id) {
         Dish dish = entityManager.find(Dish.class, id);
         if (dish == null) {
             return Response.status(Response.Status.NOT_FOUND).entity("Dish not found").build();
@@ -28,7 +28,7 @@ public class DishService {
         return Response.ok(dish).build();
     }
 
-    public Response getDish(String name){
+    public Response getDishByName(String name){
         Dish dish = entityManager.createNamedQuery("Dish.findByName", Dish.class)
                 .setParameter("name", name)
                 .getSingleResult();
