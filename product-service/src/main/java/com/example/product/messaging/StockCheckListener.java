@@ -31,7 +31,7 @@ public class StockCheckListener {
     public void init() {
         try {
             ConnectionFactory factory = new ConnectionFactory();
-            factory.setHost("rabbitmq");
+            factory.setHost("localhost");
             factory.setPort(5672);
             factory.setUsername("guest");
             factory.setPassword("guest");

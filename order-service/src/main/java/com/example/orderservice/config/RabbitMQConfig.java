@@ -24,7 +24,7 @@ public class RabbitMQConfig {
     public void init() {
         try {
             ConnectionFactory factory = new ConnectionFactory();
-            factory.setHost("rabbitmq");  // Docker service name
+            factory.setHost("localhost");  // Docker service name
             factory.setPort(5672);
             factory.setUsername("guest");
             factory.setPassword("guest");
