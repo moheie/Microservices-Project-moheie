@@ -6,6 +6,7 @@ import com.example.orderservice.utils.Jwt;
 import jakarta.ejb.Stateful;
 import jakarta.inject.Inject;
 import jakarta.annotation.PreDestroy;
+import org.hibernate.Hibernate;
 
 @Stateful
 public class CartService {
@@ -27,6 +28,9 @@ public class CartService {
             this.currentCart.setUserId(userId);
             this.currentCart = cartRepository.save(this.currentCart);
         }
+        else {
+            Hibernate.initialize(this.currentCart.getProductIds());
+        }
     }
 
     public Cart getCurrentCart() {
@@ -42,6 +46,7 @@ public class CartService {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
         }
 
+        this.currentCart.getProductIds().size();
         this.currentCart.addProductId(productId);
         this.currentCart = cartRepository.save(this.currentCart);
     }

@@ -10,7 +10,7 @@ import java.util.List;
 
 @Stateless
 public class DishService {
-    @PersistenceContext
+    @PersistenceContext(unitName = "product-service")
     EntityManager entityManager;
 
     public Response createDish(String name, String description, double price, String companyName, int stockCount) {

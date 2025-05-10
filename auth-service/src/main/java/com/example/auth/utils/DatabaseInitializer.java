@@ -18,7 +18,7 @@ import jakarta.transaction.UserTransaction;
 @TransactionManagement(TransactionManagementType.BEAN)
 public class DatabaseInitializer {
 
-    @PersistenceContext
+    @PersistenceContext(unitName = "auth-service")
     private EntityManager entityManager;
 
     @Resource

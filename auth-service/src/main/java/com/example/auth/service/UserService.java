@@ -16,7 +16,7 @@ import java.util.UUID;
 @Stateless
 public class UserService {
 
-    @PersistenceContext
+    @PersistenceContext(unitName = "auth-service")
     private EntityManager entityManager;
 
     public Response createUser(String username, String password, String email, String companyName, Role role) {

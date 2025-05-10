@@ -21,7 +21,7 @@ public class StockCheckListener {
     private static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
     private static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
 
-    @PersistenceContext
+    @PersistenceContext(unitName = "product-service")
     private EntityManager entityManager;
 
     private Connection connection;

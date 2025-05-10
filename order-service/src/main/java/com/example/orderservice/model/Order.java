@@ -6,6 +6,12 @@ import java.util.List;
 
 @Entity
 @Table(name = "orders") // "order" is a reserved keyword in SQL
+@NamedQueries({
+        @NamedQuery(name = "Order.findByUserId",
+                query = "SELECT o FROM Order o WHERE o.userId = :userId"),
+        @NamedQuery(name = "Order.findByStatus",
+                query = "SELECT o FROM Order o WHERE o.status = :status")
+})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -13,7 +13,7 @@ public class Cart {
     @Column(nullable = false)
     private Long userId;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<Long> productIds = new ArrayList<>();
 
     public Cart() {
