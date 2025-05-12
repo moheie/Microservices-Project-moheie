@@ -13,6 +13,9 @@ public class Cart {
     @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false)
+    String userName;
+
     @ElementCollection(fetch = FetchType.EAGER)
     private List<Long> productIds = new ArrayList<>();
 

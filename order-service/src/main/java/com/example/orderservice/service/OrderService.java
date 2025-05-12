@@ -1,6 +1,7 @@
 package com.example.orderservice.service;
 
 import com.example.orderservice.config.RabbitMQConfig;
+import com.example.orderservice.dto.CompanyOrderDTO;
 import com.example.orderservice.model.Cart;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.model.OrderStatus;
@@ -14,6 +15,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Stateless
 public class OrderService {
@@ -54,7 +56,7 @@ public class OrderService {
             };
 
             rabbitMQConfig.getChannel().basicConsume(
-                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE, // FIXED: Use confirmation queue
+                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE,
                     true,
                     deliverCallback,
                     consumerTag -> {}
@@ -85,11 +87,13 @@ public class OrderService {
         // Send message to check stock
         checkProductStock(order);
 
-        // Clear the cart after creating the order
+        // Clear the cart after creating the order but don't persist changes
         cartService.clearCart();
+        // We don't call persistCart() since we want the cart to stay in memory only
 
         return order;
     }
+
 
     private void checkProductStock(Order order) {
         try {
@@ -150,5 +154,20 @@ public class OrderService {
 
     public Order getOrder(Long orderId) {
         return orderRepository.findById(orderId);
+    }
+
+    public List<CompanyOrderDTO> getOrdersByCompany(String token) {
+        String companyName = Jwt.getCompany(token);
+
+        if (companyName == null || companyName.isEmpty()) {
+            throw new SecurityException("No company associated with this token");
+        }
+
+        return orderRepository.findByCompanyName(companyName);
+    }
+
+    public List<Order> getOrders(String token) {
+        Long userId = Jwt.getUserId(token);
+        return orderRepository.findByUserId(userId);
     }
 }

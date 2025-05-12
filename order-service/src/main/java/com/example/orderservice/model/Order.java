@@ -2,6 +2,7 @@ package com.example.orderservice.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -10,7 +11,11 @@ import java.util.List;
         @NamedQuery(name = "Order.findByUserId",
                 query = "SELECT o FROM Order o WHERE o.userId = :userId"),
         @NamedQuery(name = "Order.findByStatus",
-                query = "SELECT o FROM Order o WHERE o.status = :status")
+                query = "SELECT o FROM Order o WHERE o.status = :status"),
+        @NamedQuery(name = "Order.findById",
+                query = "SELECT o FROM Order o WHERE o.id = :id"),
+        @NamedQuery(name = "Order.findByCompanyName",
+                query = "SELECT o FROM Order o JOIN o.dishes d WHERE d.companyName = :companyName")
 })
 public class Order {
     @Id
@@ -21,10 +26,14 @@ public class Order {
     private Long userId;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    private List<Long> productIds;
+    private List<Long> productIds = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @JoinColumn(name = "order_id")
+    private List<OrderDish> dishes = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
-    private com.example.orderservice.model.OrderStatus status;
+    private OrderStatus status;
 
     private LocalDateTime createdAt;
 
@@ -37,6 +46,9 @@ public class Order {
 
     public List<Long> getProductIds() { return productIds; }
     public void setProductIds(List<Long> productIds) { this.productIds = productIds; }
+
+    public List<OrderDish> getDishes() { return dishes; }
+    public void setDishes(List<OrderDish> dishes) { this.dishes = dishes; }
 
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }

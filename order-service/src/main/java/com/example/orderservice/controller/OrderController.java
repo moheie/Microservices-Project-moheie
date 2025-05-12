@@ -1,5 +1,6 @@
 package com.example.orderservice.controller;
 
+import com.example.orderservice.dto.CompanyOrderDTO;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.service.OrderService;
 import jakarta.ejb.EJB;
@@ -7,6 +8,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import java.util.List;
 
 @Path("/orders")
 @Produces(MediaType.APPLICATION_JSON)
@@ -58,5 +61,55 @@ public class OrderController {
         }
     }
 
+    @GET
+    @Path("/getOrders")
+    public Response getOrders(@HeaderParam("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+
+        String token = authHeader.substring("Bearer ".length());
+
+        try {
+            List<Order> orders = orderService.getOrders(token);
+            if (orders.isEmpty()) {
+                return Response.status(Response.Status.OK)
+                        .entity("No orders found for this user").build();
+            }
+            return Response.ok(orders).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving orders: " + e.getMessage()).build();
+        }
+    }
+
+    @GET
+    @Path("/byCompany")
+    public Response getOrdersByCompany(@HeaderParam("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+
+        String token = authHeader.substring("Bearer ".length());
+
+        try {
+            List<CompanyOrderDTO> orders = orderService.getOrdersByCompany(token);
+
+            if (orders.isEmpty()) {
+                return Response.status(Response.Status.OK)
+                        .entity("No orders found for your company").build();
+            }
+
+            return Response.ok(orders).build();
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(e.getMessage()).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving orders by company: " + e.getMessage()).build();
+        }
+    }
 
 }

@@ -37,12 +37,14 @@ public class CartController {
         }
     }
 
-    //TODO : Add multiple products to cart
     @POST
     @Path("/add")
     public Response addToCart(
             @HeaderParam("Authorization") String authHeader,
-            @QueryParam("productId") Long productId , @QueryParam("quantity") int quantity) {
+            @QueryParam("productId") Long productId, @QueryParam("quantity") int quantity,
+            @QueryParam("dishName") String dishName,
+            @QueryParam("dishPrice") double dishPrice,
+            @QueryParam("companyName") String companyName) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity("Valid authentication token required").build();
@@ -57,7 +59,7 @@ public class CartController {
 
         try {
             cartService.initializeCart(token);
-            cartService.addProductsToCart(productId , quantity);
+            cartService.addProductsToCart(productId, quantity, dishName, dishPrice, companyName);
             return Response.ok("Product added to cart").build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -107,6 +109,26 @@ public class CartController {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error removing product from cart: " + e.getMessage()).build();
+        }
+    }
+
+    @POST
+    @Path("/save")
+    public Response saveCart(@HeaderParam("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+
+        String token = authHeader.substring("Bearer ".length());
+
+        try {
+            cartService.initializeCart(token);
+            cartService.persistCart();
+            return Response.ok("Cart saved to database").build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error saving cart: " + e.getMessage()).build();
         }
     }
 }
