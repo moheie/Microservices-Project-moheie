@@ -11,7 +11,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -32,25 +31,36 @@ public class OrderService {
     @PostConstruct
     public void setupConsumer() {
         try {
+            System.out.println("Setting up consumer for queue: " + RabbitMQConfig.ORDER_CONFIRMATION_QUEUE);
+
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                System.out.println("Received message: " + message);
+
                 String[] parts = message.split(":");
                 if (parts.length == 3) {
-                    Long orderId = Long.valueOf(parts[0]);
-                    boolean inStock = Boolean.parseBoolean(parts[1]);
-                    double totalPrice = Double.parseDouble(parts[2]);
-                    processOrder(orderId, inStock, totalPrice);
+                    try {
+                        Long orderId = Long.valueOf(parts[0]);
+                        boolean inStock = Boolean.parseBoolean(parts[1]);
+                        double totalPrice = Double.parseDouble(parts[2]);
+                        System.out.println("Processing order: " + orderId + ", inStock: " + inStock + ", totalPrice: " + totalPrice);
+                        processOrder(orderId, inStock, totalPrice);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Error parsing message: " + message + " - " + e.getMessage());
+                    }
+                } else {
+                    System.err.println("Invalid message format: " + message);
                 }
             };
 
             rabbitMQConfig.getChannel().basicConsume(
-                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE,
+                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE, // FIXED: Use confirmation queue
                     true,
                     deliverCallback,
-                    consumerTag -> {
-                    }
+                    consumerTag -> {}
             );
         } catch (IOException e) {
+            System.err.println("Failed to set up RabbitMQ consumer: " + e.getMessage());
             throw new RuntimeException("Failed to set up RabbitMQ consumer", e);
         }
     }
@@ -96,19 +106,18 @@ public class OrderService {
         }
     }
 
-//    //TODO : add a method to calculate the total price of the order
-//    private double calculateTotalPrice(Order order) {
-//        // Placeholder for actual price calculation logic
-//        // In a real application, you would fetch product prices from a database or service
-//        return order.getProductIds().size() * MINIMUM_CHARGE;
-//    }
 
     private void processOrder(Long orderId, boolean inStock, double totalPrice) {
-        Order order = orderRepository.findById(orderId);
-        if (order == null) {
+        if (orderId == null) {
+            System.err.println("Cannot process order: orderId is null");
             return;
         }
 
+        Order order = orderRepository.findById(orderId);
+        if (order == null) {
+            System.err.println("Order not found with id: " + orderId);
+            return;
+        }
         if (inStock && totalPrice >= MINIMUM_CHARGE) {
             order.setStatus(OrderStatus.BEING_DELIVERED);
             // Proceed with payment (mock implementation)
