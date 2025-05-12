@@ -40,7 +40,6 @@ public class CartService {
         return this.currentCart;
     }
 
-    //TODO add multiples of same product
     public void addProductToCart(Long productId) {
         if (this.currentCart == null) {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
@@ -48,6 +47,29 @@ public class CartService {
 
         this.currentCart.getProductIds().size();
         this.currentCart.addProductId(productId);
+        this.currentCart = cartRepository.save(this.currentCart);
+    }
+
+    //TODO add multiples of same product
+    public void addProductsToCart(Long productId, int quantity) {
+        if (this.currentCart == null) {
+            throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
+        }
+
+        for (int i = 0; i < quantity; i++) {
+            this.currentCart.addProductId(productId);
+        }
+        this.currentCart = cartRepository.save(this.currentCart);
+    }
+
+    public void removeProductFromCart(Long productId , int quantity) {
+        if (this.currentCart == null) {
+            throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
+        }
+
+        for (int i = 0; i < quantity; i++) {
+            this.currentCart.removeProductId(productId);
+        }
         this.currentCart = cartRepository.save(this.currentCart);
     }
 

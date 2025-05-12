@@ -67,18 +67,106 @@ public class DishController {
 
     @GET
     @Path("/getDishes")
-    public Response getDishesByCompanyName(
-            @HeaderParam("Authorization") String authHeader, @QueryParam("companyName") String companyName) {
+    public Response viewDishes(@HeaderParam("Authorization") String authHeader) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 return Response.status(Response.Status.UNAUTHORIZED)
                         .entity("Valid authentication token required").build();
             }
+
+            String token = authHeader.substring("Bearer ".length());
+            String role = Jwt.getRole(token);
+            if (!role.equals(ROLES.RESTAURANT_REPRESENTATIVE.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Unauthorized access").build();
+            }
+
+            String companyName = Jwt.getCompany(token);
             return dishService.getDishesByCompanyName(companyName);
+
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error retrieving dishes: " + e.getMessage()).build();
         }
     }
 
+    @PUT
+    @Path("/update")
+    public Response updateDish(
+            @HeaderParam("Authorization") String authHeader,
+            @QueryParam("dishId") Long dishId,
+            @QueryParam("name") String name,
+            @QueryParam("description") String description,
+            @QueryParam("price") Double price,
+            @QueryParam("stockCount") Integer stockCount) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Valid authentication token required").build();
+            }
+
+            String token = authHeader.substring("Bearer ".length());
+            String role = Jwt.getRole(token);
+            if (!role.equals(ROLES.RESTAURANT_REPRESENTATIVE.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Unauthorized access").build();
+            }
+            String companyName = Jwt.getCompany(token);
+
+            return dishService.updateDish(dishId, name, description, price, stockCount, companyName);
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error updating dish: " + e.getMessage()).build();
+        }
+    }
+
+    @DELETE
+    @Path("/delete")
+    public Response deleteDish(
+            @HeaderParam("Authorization") String authHeader,
+            @QueryParam("dishId") Long dishId) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Valid authentication token required").build();
+            }
+
+            String token = authHeader.substring("Bearer ".length());
+            String role = Jwt.getRole(token);
+            if (!role.equals(ROLES.RESTAURANT_REPRESENTATIVE.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Unauthorized access").build();
+            }
+            String companyName = Jwt.getCompany(token);
+
+            return dishService.deleteDish(dishId, companyName);
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error deleting dish: " + e.getMessage()).build();
+        }
+    }
+
+    @GET
+    @Path("/getSoldDishes")
+    public Response getSoldDishes(@HeaderParam("Authorization") String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Valid authentication token required").build();
+            }
+
+            String token = authHeader.substring("Bearer ".length());
+            String role = Jwt.getRole(token);
+            if (!role.equals(ROLES.RESTAURANT_REPRESENTATIVE.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Unauthorized access").build();
+            }
+            String companyName = Jwt.getCompany(token);
+
+            return dishService.getSoldDishesByCompanyName(companyName);
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving sold dishes: " + e.getMessage()).build();
+        }
+    }
 }

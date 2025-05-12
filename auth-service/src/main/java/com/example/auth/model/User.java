@@ -11,7 +11,9 @@ import jakarta.persistence.*;
         @NamedQuery(name = "User.findByEmail",
                 query = "SELECT u FROM User u WHERE u.email = :email"),
         @NamedQuery(name = "User.findByRole",
-                query = "SELECT u FROM User u WHERE u.role = :role")
+                query = "SELECT u FROM User u WHERE u.role = :role"),
+        @NamedQuery(name = "User.findByCompanyName",
+                query = "SELECT u FROM User u WHERE u.companyName = :companyName")
 })
 public class User{
     @Id

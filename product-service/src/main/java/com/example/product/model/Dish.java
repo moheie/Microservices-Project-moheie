@@ -12,7 +12,11 @@ import jakarta.persistence.*;
                 @NamedQuery(name = "Dish.findByCompanyName",
                         query = "SELECT d FROM Dish d WHERE d.companyName = :companyName"),
                 @NamedQuery(name = "Dish.findByPrice",
-                        query = "SELECT d FROM Dish d WHERE d.price <= :price")
+                        query = "SELECT d FROM Dish d WHERE d.price <= :price"),
+                @NamedQuery(name = "Dish.findByStockCount",
+                        query = "SELECT d FROM Dish d WHERE d.stockCount >= :stockCount"),
+                @NamedQuery(name = "Dish.findAll",
+                        query = "SELECT d FROM Dish d")
         }
 )
 public class Dish {

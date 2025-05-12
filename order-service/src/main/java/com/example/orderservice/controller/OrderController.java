@@ -46,17 +46,15 @@ public class OrderController {
                     .entity("Valid authentication token required").build();
         }
 
-        Order order = orderService.getOrder(orderId);
-        if (order == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("Order not found").build();
+        try {
+            Order order = orderService.getOrder(orderId);
+            if (order == null) {
+                return Response.status(Response.Status.NOT_FOUND).entity("Order not found").build();
+            }
+            return Response.ok(order).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving order: " + e.getMessage()).build();
         }
-
-        // Optionally check if the order belongs to current user
-        // String userId = Jwt.getUserId(authHeader.substring("Bearer ".length()));
-        // if (!order.getUserId().equals(userId)) {
-        //     return Response.status(Response.Status.FORBIDDEN).entity("Access denied").build();
-        // }
-
-        return Response.ok(order).build();
     }
 }

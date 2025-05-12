@@ -18,6 +18,7 @@ public class CartController {
     private CartService cartService;
 
     @GET
+    @Path("/get")
     public Response getCart(@HeaderParam("Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -36,11 +37,12 @@ public class CartController {
         }
     }
 
+    //TODO : Add multiple products to cart
     @POST
     @Path("/add")
     public Response addToCart(
             @HeaderParam("Authorization") String authHeader,
-            @QueryParam("productId") Long productId) {
+            @QueryParam("productId") Long productId , @QueryParam("quantity") int quantity) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity("Valid authentication token required").build();
@@ -55,7 +57,7 @@ public class CartController {
 
         try {
             cartService.initializeCart(token);
-            cartService.addProductToCart(productId);
+            cartService.addProductsToCart(productId , quantity);
             return Response.ok("Product added to cart").build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -64,6 +66,7 @@ public class CartController {
     }
 
     @DELETE
+    @Path("/clear")
     public Response clearCart(@HeaderParam("Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -79,6 +82,31 @@ public class CartController {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error clearing cart: " + e.getMessage()).build();
+        }
+    }
+
+    @DELETE
+    @Path("/remove")
+    public Response removeFromCart(
+            @HeaderParam("Authorization") String authHeader,
+            @QueryParam("productId") Long productId, @QueryParam("quantity") int quantity) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+        String token = authHeader.substring("Bearer ".length());
+        if (productId == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Product ID is required").build();
+        }
+        try {
+            cartService.initializeCart(token);
+            cartService.removeProductFromCart(productId, quantity);
+            return Response.ok("Product removed from cart").build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error removing product from cart: " + e.getMessage()).build();
         }
     }
 }

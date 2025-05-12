@@ -28,12 +28,25 @@ public class UserService {
             }
 
             // Validate company name for restaurant representatives
-            if (role == Role.RESTAURANT_REPRESENTATIVE && (companyName == null || companyName.isEmpty())) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("Company name is required for restaurant representatives").build();
+            if (role == Role.RESTAURANT_REPRESENTATIVE) {
+                if (companyName == null || companyName.isEmpty()) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Company name is required for restaurant representatives").build();
+                }
+
+                // Check if a representative for the company already exists
+                try {
+                    entityManager.createNamedQuery("User.findByCompanyName", User.class)
+                            .setParameter("companyName", companyName)
+                            .getSingleResult();
+                    return Response.status(Response.Status.CONFLICT)
+                            .entity("A representative for this company already exists").build();
+                } catch (NoResultException ignored) {
+                    // No representative exists, continue
+                }
             }
 
-            // Check if username exists using named query
+            // Check if username exists
             try {
                 entityManager.createNamedQuery("User.findByUsername", User.class)
                         .setParameter("username", username)
@@ -44,7 +57,7 @@ public class UserService {
                 // Username doesn't exist, continue
             }
 
-            // Check if email exists using named query
+            // Check if email exists
             try {
                 entityManager.createNamedQuery("User.findByEmail", User.class)
                         .setParameter("email", email)
