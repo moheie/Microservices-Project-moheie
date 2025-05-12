@@ -18,7 +18,7 @@ public class RabbitMQConfig {
     private Channel channel;
 
     public static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
-    public static final String ORDER_CONFIRMATION_QUEUE = "order-confirmation";
+    public static final String ORDER_CONFIRMATION_QUEUE = "stock-confirmation";
 
     @PostConstruct
     public void init() {

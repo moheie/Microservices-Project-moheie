@@ -37,10 +37,10 @@ public class OrderController {
     }
 
     @GET
-    @Path("/{id}")
+    @Path("/getOrder")
     public Response getOrder(
             @HeaderParam("Authorization") String authHeader,
-            @PathParam("id") Long orderId) {
+            @QueryParam("id") Long orderId) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity("Valid authentication token required").build();
@@ -57,4 +57,6 @@ public class OrderController {
                     .entity("Error retrieving order: " + e.getMessage()).build();
         }
     }
+
+
 }
