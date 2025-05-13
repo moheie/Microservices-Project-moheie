@@ -18,7 +18,7 @@ public class RabbitMQConfig {
     private Channel channel;
 
     public static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
-    public static final String ORDER_CONFIRMATION_QUEUE = "stock-confirmation";
+    public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
 
     @PostConstruct
     public void init() {
@@ -34,7 +34,7 @@ public class RabbitMQConfig {
 
             // Declare queues
             channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, false, false, false, null);
-            channel.queueDeclare(ORDER_CONFIRMATION_QUEUE, false, false, false, null);
+            channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, false, false, false, null);
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
         }

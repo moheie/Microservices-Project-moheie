@@ -33,7 +33,7 @@ public class OrderService {
     @PostConstruct
     public void setupConsumer() {
         try {
-            System.out.println("Setting up consumer for queue: " + RabbitMQConfig.ORDER_CONFIRMATION_QUEUE);
+            System.out.println("Setting up consumer for queue: " + RabbitMQConfig.STOCK_CONFIRMATION_QUEUE);
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -56,7 +56,7 @@ public class OrderService {
             };
 
             rabbitMQConfig.getChannel().basicConsume(
-                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE,
+                    RabbitMQConfig.STOCK_CONFIRMATION_QUEUE,
                     true,
                     deliverCallback,
                     consumerTag -> {}
@@ -146,7 +146,7 @@ public class OrderService {
     private void sendOrderConfirmation(Order order, boolean success) {
         try {
             String message = "Order " + order.getId() + " " + (success ? "confirmed" : "canceled");
-            rabbitMQConfig.getChannel().basicPublish("", RabbitMQConfig.ORDER_CONFIRMATION_QUEUE, null, message.getBytes(StandardCharsets.UTF_8));
+            rabbitMQConfig.getChannel().basicPublish("", RabbitMQConfig.STOCK_CONFIRMATION_QUEUE, null, message.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException("Failed to send order confirmation", e);
         }

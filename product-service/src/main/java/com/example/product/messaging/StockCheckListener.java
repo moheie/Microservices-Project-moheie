@@ -19,7 +19,7 @@ import com.rabbitmq.client.*;
 @Startup
 public class StockCheckListener {
     private static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
-    public static final String ORDER_CONFIRMATION_QUEUE = "stock-confirmation";
+    public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
 
     @PersistenceContext(unitName = "product-service")
     private EntityManager entityManager;
@@ -40,7 +40,7 @@ public class StockCheckListener {
             channel = connection.createChannel();
 
             channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, false, false, false, null);
-            channel.queueDeclare(ORDER_CONFIRMATION_QUEUE, false, false, false, null);
+            channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, false, false, false, null);
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -68,7 +68,7 @@ public class StockCheckListener {
 
             double totalPrice = calculateTotalPrice(productIds);
             String response = orderId + ":" + allInStock + ":" + totalPrice;
-            channel.basicPublish("", ORDER_CONFIRMATION_QUEUE, null,
+            channel.basicPublish("", STOCK_CONFIRMATION_QUEUE, null,
                     response.getBytes(StandardCharsets.UTF_8));
 
             // If in stock, decrease stock count
