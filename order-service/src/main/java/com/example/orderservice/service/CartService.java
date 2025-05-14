@@ -1,6 +1,7 @@
 package com.example.orderservice.service;
 
 import com.example.orderservice.model.Cart;
+import com.example.orderservice.model.OrderDish;
 import com.example.orderservice.repository.CartRepository;
 import com.example.orderservice.utils.Jwt;
 import jakarta.annotation.PreDestroy;
@@ -40,6 +41,7 @@ public class CartService implements Serializable {
             // Create a new in-memory cart
             this.currentCart = new Cart();
             this.currentCart.setUserId(userId);
+            this.currentCart.setUserName(Jwt.getUsername(token));
         }
         this.isDirty = false;
     }
@@ -65,9 +67,19 @@ public class CartService implements Serializable {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
         }
 
+        // Create the OrderDish object once
+        OrderDish dish = new OrderDish(productId, dishName, companyName, dishPrice);
+
+        // Add the specified quantity
         for (int i = 0; i < quantity; i++) {
+            // Add to productIds for backward compatibility
             this.currentCart.addProductId(productId);
+
+            // Add a new instance of the dish for each quantity
+            // This ensures that removing one dish doesn't remove all of them
+            this.currentCart.addDish(new OrderDish(productId, dishName, companyName, dishPrice));
         }
+
         this.isDirty = true;
     }
 
@@ -78,6 +90,7 @@ public class CartService implements Serializable {
 
         for (int i = 0; i < quantity; i++) {
             this.currentCart.removeProductId(productId);
+            this.currentCart.removeDish(productId);
         }
         this.isDirty = true;
     }
@@ -85,6 +98,7 @@ public class CartService implements Serializable {
     public void clearCart() {
         if (this.currentCart != null) {
             this.currentCart.getProductIds().clear();
+            this.currentCart.getDishes().clear();
             this.isDirty = true;
         }
     }

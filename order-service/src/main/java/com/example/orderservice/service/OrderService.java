@@ -5,6 +5,7 @@ import com.example.orderservice.dto.CompanyOrderDTO;
 import com.example.orderservice.messaging.NotificationSender;
 import com.example.orderservice.model.Cart;
 import com.example.orderservice.model.Order;
+import com.example.orderservice.model.OrderDish;
 import com.example.orderservice.model.OrderStatus;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.utils.Jwt;
@@ -16,6 +17,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Stateless
@@ -76,13 +78,41 @@ public class OrderService {
         cartService.initializeCart(token);
         Cart cart = cartService.getCurrentCart();
 
-        if (cart.getProductIds().isEmpty()) {
+        if (cart.getProductIds().isEmpty() && cart.getDishes().isEmpty()) {
             throw new IllegalStateException("Cannot create order from empty cart");
         }
 
         Order order = new Order();
         order.setUserId(userId);
-        order.setProductIds(cart.getProductIds());
+
+        // Transfer product IDs (for backward compatibility)
+        order.setProductIds(new ArrayList<>(cart.getProductIds()));
+
+        // Transfer full dish information
+        if (cart.getDishes() != null && !cart.getDishes().isEmpty()) {
+            // Create new OrderDish objects to avoid reference issues
+            List<OrderDish> orderDishes = new ArrayList<>();
+            for (OrderDish dish : cart.getDishes()) {
+                OrderDish newDish = new OrderDish(
+                        dish.getDishId(),
+                        dish.getName(),
+                        dish.getCompanyName(),
+                        dish.getPrice()
+                );
+                orderDishes.add(newDish);
+            }
+            order.setDishes(orderDishes);
+        } else {
+            // For backward compatibility where only productIds exist but no dishes
+            List<OrderDish> placeholderDishes = new ArrayList<>();
+            for (Long productId : cart.getProductIds()) {
+                // Create a placeholder dish with minimal info
+                OrderDish dish = new OrderDish(productId, "Product " + productId, "Unknown", 0.0);
+                placeholderDishes.add(dish);
+            }
+            order.setDishes(placeholderDishes);
+        }
+
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
 
@@ -91,9 +121,9 @@ public class OrderService {
         // Send message to check stock
         checkProductStock(order);
 
-        // Clear the cart after creating the order but don't persist changes
+        // Clear the cart after creating the order
         cartService.clearCart();
-        // We don't call persistCart() since we want the cart to stay in memory only
+        cartService.persistCart(); // Persist the empty cart to database
 
         return order;
     }
@@ -128,27 +158,40 @@ public class OrderService {
             notificationSender.sendLogMessage("Order", "Error", "Order not found with id: " + orderId);
             return;
         }
-        
-        if (inStock && totalPrice >= MINIMUM_CHARGE) {
+
+        // Calculate total from order dishes instead of relying on product service
+        double orderTotal = order.getDishes().stream()
+                .mapToDouble(OrderDish::getPrice)
+                .sum();
+
+        System.out.println("Order " + orderId + " processing: inStock=" + inStock +
+                ", calculated total=" + orderTotal +
+                ", product service total=" + totalPrice);
+
+        if (inStock && orderTotal >= MINIMUM_CHARGE) {
             order.setStatus(OrderStatus.BEING_DELIVERED);
             // Proceed with payment (mock implementation)
             sendOrderConfirmation(order, true);
-            
+
             // Send notifications
             notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
         } else {
             order.setStatus(OrderStatus.CANCELED);
             // Rollback actions (mock implementation)
             sendOrderConfirmation(order, false);
-            
+
+            String reason = !inStock ? "out of stock" :
+                    ("minimum charge not met - order total: $" + orderTotal +
+                            ", minimum required: $" + MINIMUM_CHARGE);
+
             // Send notifications
             if (!inStock) {
-                notificationSender.sendLogMessage("Order", "Warning", 
-                    "Order " + orderId + " canceled: Products not in stock");
+                notificationSender.sendLogMessage("Order", "Warning",
+                        "Order " + orderId + " canceled: Products not in stock");
                 notificationSender.sendOrderConfirmation(order.getId(), "canceled - out of stock", order.getUserId());
             } else {
-                notificationSender.sendLogMessage("Order", "Warning", 
-                    "Order " + orderId + " canceled: Minimum charge not met");
+                notificationSender.sendLogMessage("Order", "Warning",
+                        "Order " + orderId + " canceled: Minimum charge not met");
                 notificationSender.sendPaymentFailure(order.getId(), "Minimum charge of $" + MINIMUM_CHARGE + " not met");
                 notificationSender.sendOrderConfirmation(order.getId(), "canceled - minimum charge not met", order.getUserId());
             }
