@@ -32,7 +32,7 @@
             <i class="bi bi-bag fs-1 mb-3 text-success"></i>
             <h3>Place Order</h3>
             <p>Ready to order? Add dishes to your cart and checkout.</p>
-            <router-link to="/new-order" class="btn btn-success w-100">Order Now</router-link>
+            <router-link to="/cart" class="btn btn-success w-100">Order Now</router-link>
           </div>
         </div>
       </div>

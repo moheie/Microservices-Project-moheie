@@ -61,6 +61,10 @@ export default {
       return parseFloat(price).toFixed(2);
     };
 
+    const formatStock = (stock) => {
+      return stock
+    };
+
     onMounted(() => {
       fetchDishes();
     });
@@ -73,7 +77,8 @@ export default {
       restaurantFilter,
       restaurants,
       filteredDishes,
-      formatPrice
+      formatPrice,
+        formatStock
     };
   }
 }
@@ -132,11 +137,12 @@ export default {
                   <h5 class="card-title">{{ dish.name }}</h5>
                   <p class="card-text dish-description">{{ dish.description }}</p>
                   <p><strong>Restaurant:</strong> {{ dish.companyName }}</p>
+                  <p><strong>Stock:</strong> {{ formatStock(dish.stockCount) }}</p>
                   <p class="price">${{ formatPrice(dish.price) }}</p>
                 </div>
                 <div class="card-footer">
-                  <router-link :to="'/new-order'" class="btn btn-primary w-100">
-                    Order Now
+                  <router-link :to="'/cart'" class="btn btn-primary w-100">
+                    Add To Cart
                   </router-link>
                 </div>
               </div>

@@ -67,6 +67,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import store from '@/store';
+import { getAuthHeaders } from '@/utils/auth'; // Adjust the import path as necessary
 
 export default {
   name: 'Cart',
@@ -76,18 +77,11 @@ export default {
     const loading = ref(true);
     const error = ref(null);
 
-    // Helper function to add auth token to requests
-    const getAuthHeaders = () => {
-      const token = sessionStorage.getItem('token');
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    };
-
     const fetchCart = async () => {
       loading.value = true;
       try {
-        const response = await axios.get('http://localhost:8084/order-service/api/cart/get', {
-          headers: getAuthHeaders()
-        });
+        const headers = getAuthHeaders();
+        const response = await axios.get('http://localhost:8084/order-service/api/cart/get', {headers});
         cart.value = response.data;
       } catch (err) {
         error.value = 'Failed to load cart. Please try again.';

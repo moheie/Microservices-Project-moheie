@@ -18,9 +18,6 @@
               <router-link class="nav-link" to="/orders">My Orders</router-link>
             </li>
             <li v-if="isCustomer" class="nav-item">
-              <router-link class="nav-link" to="/new-order">New Order</router-link>
-            </li>
-            <li v-if="isCustomer" class="nav-item">
               <router-link class="nav-link" to="/order-confirmation">Order Confirmation</router-link>
             </li>
             <li v-if="isCustomer" class="nav-item">

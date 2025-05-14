@@ -18,12 +18,14 @@ const routes = [
     name: 'Register',
     component: () => import('../views/Auth/Register.vue'),
     meta: { requiresGuest: true }
-  },  {
+  },  
+  {
     path: '/cart',
     name: 'Cart',
     component: () => import('../views/CustomerFun/Cart.vue'),
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
-  },{
+  },
+  {
     path: '/admin-dashboard',
     name: 'AdminDashboard',
     component: () => import('../views/AdminFun/AdminDashboard.vue'),
@@ -40,7 +42,8 @@ const routes = [
     name: 'CustomerDashboard',
     component: () => import('../views/CustomerFun/CustomerDashboard.vue'),
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
-  },  {
+  },
+  {
     path: '/create-seller',
     name: 'CreateSeller',
     component: () => import('../views/AdminFun/CreateSeller.vue'),
@@ -57,16 +60,11 @@ const routes = [
     name: 'ListSellers',
     component: () => import('../views/AdminFun/ListSellers.vue'),
     meta: { requiresAuth: true, roles: ['ADMIN'] }
-  },  {
+  },
+  {
     path: '/orders',
     name: 'Orders',
     component: () => import('../views/CustomerFun/Orders.vue'),
-    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
-  },
-  {
-    path: '/new-order',
-    name: 'NewOrder',
-    component: () => import('../views/CustomerFun/NewOrder.vue'),
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
   },
   {
