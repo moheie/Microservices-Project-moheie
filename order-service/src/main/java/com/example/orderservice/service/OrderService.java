@@ -2,6 +2,7 @@ package com.example.orderservice.service;
 
 import com.example.orderservice.config.RabbitMQConfig;
 import com.example.orderservice.dto.CompanyOrderDTO;
+import com.example.orderservice.messaging.NotificationSender;
 import com.example.orderservice.model.Cart;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.model.OrderStatus;
@@ -27,6 +28,9 @@ public class OrderService {
 
     @Inject
     private RabbitMQConfig rabbitMQConfig;
+    
+    @Inject
+    private NotificationSender notificationSender;
 
     private static final double MINIMUM_CHARGE = 50.0;
 
@@ -114,22 +118,40 @@ public class OrderService {
     private void processOrder(Long orderId, boolean inStock, double totalPrice) {
         if (orderId == null) {
             System.err.println("Cannot process order: orderId is null");
+            notificationSender.sendLogMessage("Order", "Error", "Cannot process order: orderId is null");
             return;
         }
 
         Order order = orderRepository.findById(orderId);
         if (order == null) {
             System.err.println("Order not found with id: " + orderId);
+            notificationSender.sendLogMessage("Order", "Error", "Order not found with id: " + orderId);
             return;
         }
+        
         if (inStock && totalPrice >= MINIMUM_CHARGE) {
             order.setStatus(OrderStatus.BEING_DELIVERED);
             // Proceed with payment (mock implementation)
             sendOrderConfirmation(order, true);
+            
+            // Send notifications
+            notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
         } else {
             order.setStatus(OrderStatus.CANCELED);
             // Rollback actions (mock implementation)
             sendOrderConfirmation(order, false);
+            
+            // Send notifications
+            if (!inStock) {
+                notificationSender.sendLogMessage("Order", "Warning", 
+                    "Order " + orderId + " canceled: Products not in stock");
+                notificationSender.sendOrderConfirmation(order.getId(), "canceled - out of stock", order.getUserId());
+            } else {
+                notificationSender.sendLogMessage("Order", "Warning", 
+                    "Order " + orderId + " canceled: Minimum charge not met");
+                notificationSender.sendPaymentFailure(order.getId(), "Minimum charge of $" + MINIMUM_CHARGE + " not met");
+                notificationSender.sendOrderConfirmation(order.getId(), "canceled - minimum charge not met", order.getUserId());
+            }
         }
 
         orderRepository.save(order);
@@ -147,7 +169,13 @@ public class OrderService {
         try {
             String message = "Order " + order.getId() + " " + (success ? "confirmed" : "canceled");
             rabbitMQConfig.getChannel().basicPublish("", RabbitMQConfig.STOCK_CONFIRMATION_QUEUE, null, message.getBytes(StandardCharsets.UTF_8));
+            
+            // Log the event
+            if (!success) {
+                notificationSender.sendLogMessage("Order", "Info", message);
+            }
         } catch (IOException e) {
+            notificationSender.sendLogMessage("Order", "Error", "Failed to send order confirmation: " + e.getMessage());
             throw new RuntimeException("Failed to send order confirmation", e);
         }
     }

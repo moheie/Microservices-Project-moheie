@@ -4,6 +4,7 @@ import com.example.auth.model.Role;
 import com.example.auth.model.User;
 import com.example.auth.utils.Jwt;
 import com.example.auth.utils.Security;
+import com.example.auth.DTO.LoginResponse;
 import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
@@ -57,17 +58,6 @@ public class UserService {
                 // Username doesn't exist, continue
             }
 
-            // Check if email exists
-            try {
-                entityManager.createNamedQuery("User.findByEmail", User.class)
-                        .setParameter("email", email)
-                        .getSingleResult();
-                return Response.status(Response.Status.CONFLICT)
-                        .entity("Email already exists").build();
-            } catch (NoResultException ignored) {
-                // Email doesn't exist, continue
-            }
-
             // Encrypt the password
             String encryptedPassword = Security.encrypt(password);
 
@@ -102,7 +92,19 @@ public class UserService {
             // Decrypt and compare passwords
             if (Security.decrypt(user.getPassword()).equals(password)) {
                 String token = generateToken(user);
-                return Response.ok().entity(token).build();
+
+                // Extract role from the token
+                String role = Jwt.getRole(token);
+
+                LoginResponse loginResponse = new LoginResponse(
+                        token,
+                        user.getId(),
+                        user.getUsername(),
+                        user.getEmail(),
+                        user.getCompanyName(),
+                        Role.valueOf(role) // Convert role string back to Role enum
+                );
+                return Response.ok().entity(loginResponse).build();
             } else {
                 return Response.status(Response.Status.UNAUTHORIZED)
                         .entity("Invalid credentials").build();
@@ -126,6 +128,17 @@ public class UserService {
         return entityManager.createNamedQuery("User.findByRole", User.class)
                 .setParameter("role", Role.RESTAURANT_REPRESENTATIVE)
                 .getResultList();
+    }
+
+    public boolean isUsernameTaken(String username) {
+        try {
+            entityManager.createNamedQuery("User.findByUsername", User.class)
+                    .setParameter("username", username)
+                    .getSingleResult();
+            return true; // Username exists
+        } catch (NoResultException e) {
+            return false; // Username doesn't exist
+        }
     }
 
     // Generate JWT token

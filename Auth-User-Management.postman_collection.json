@@ -1,0 +1,783 @@
+{
+	"info": {
+		"_postman_id": "ad11c4be-7018-4c2f-ba35-1c45953f439f",
+		"name": "Auth-User-Management",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "31992378"
+	},
+	"item": [
+		{
+			"name": "createUser",
+			"item": [
+				{
+					"name": "RegisterCustomer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/register/customer?username=yousfi&password=safepass&email=yousi@123",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"register",
+								"customer"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "yousfi"
+								},
+								{
+									"key": "password",
+									"value": "safepass"
+								},
+								{
+									"key": "email",
+									"value": "yousi@123"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "login",
+			"item": [
+				{
+					"name": "Login customer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/login?username=yousfi&password=safepass",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "yousfi"
+								},
+								{
+									"key": "password",
+									"value": "safepass"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login admin",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/login?username=admin&password=admin123&email=admin@fooddelivery.com",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "admin"
+								},
+								{
+									"key": "password",
+									"value": "admin123"
+								},
+								{
+									"key": "email",
+									"value": "admin@fooddelivery.com"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login seller rep",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/login?username=mcdonalds&password=ba209f0e",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "mcdonalds"
+								},
+								{
+									"key": "password",
+									"value": "ba209f0e"
+								},
+								{
+									"key": "email",
+									"value": "admin@fooddelivery.com",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "AdminFun",
+			"item": [
+				{
+					"name": "Make SellerRep",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzQ3MDEzMzAyLCJleHAiOjE3NDcwOTk3MDJ9.i6vTn0BiAnrJjGpm9CGqQThrea_eZ8jedHWYEkOM8NA",
+								"description": "admin",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/register/restaurant?username=kfc&email=kfc@gmail&companyName=kfc",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"register",
+								"restaurant"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "kfc"
+								},
+								{
+									"key": "email",
+									"value": "kfc@gmail"
+								},
+								{
+									"key": "companyName",
+									"value": "kfc"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Make SellerRep",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzQ3MDEzMzAyLCJleHAiOjE3NDcwOTk3MDJ9.i6vTn0BiAnrJjGpm9CGqQThrea_eZ8jedHWYEkOM8NA",
+								"description": "admin",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/register/restaurant?username=mcdonalds&email=mcdonalds@gmail&companyName=mcdonalds",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"register",
+								"restaurant"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "mcdonalds"
+								},
+								{
+									"key": "email",
+									"value": "mcdonalds@gmail"
+								},
+								{
+									"key": "companyName",
+									"value": "mcdonalds"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get customers",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzQ3MDEzMzAyLCJleHAiOjE3NDcwOTk3MDJ9.i6vTn0BiAnrJjGpm9CGqQThrea_eZ8jedHWYEkOM8NA",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/customers",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"customers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Restaurant Reps",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzQ3MDEzMzAyLCJleHAiOjE3NDcwOTk3MDJ9.i6vTn0BiAnrJjGpm9CGqQThrea_eZ8jedHWYEkOM8NA",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/auth-service/api/auth/restaurants",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"auth-service",
+								"api",
+								"auth",
+								"restaurants"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "UserFun",
+			"item": [
+				{
+					"name": "add to cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvY",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/cart/add?productId=1&quantity=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"cart",
+								"add"
+							],
+							"query": [
+								{
+									"key": "productId",
+									"value": "1"
+								},
+								{
+									"key": "quantity",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get cart",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvY",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/cart/get",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"cart",
+								"get"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "remove product from cart",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvY",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/cart/remove?productId=1&quantity=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"cart",
+								"remove"
+							],
+							"query": [
+								{
+									"key": "productId",
+									"value": "1"
+								},
+								{
+									"key": "quantity",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "clear cart",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvYI",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/cart/clear",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"cart",
+								"clear"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "confirm Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvY",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/orders/confirm",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"orders",
+								"confirm"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get Order",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5b3VzZmkiLCJ1c2VySWQiOjIsInJvbGUiOiJDVVNUT01FUiIsImlhdCI6MTc0NzAxMzU5NywiZXhwIjoxNzQ3MDk5OTk3fQ.WzZUK6vRhs7WDvJwKNsIVMRerFVjZinnfPJrS5Y5HvY",
+								"description": "user",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8084/order-service/api/orders?id=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8084",
+							"path": [
+								"order-service",
+								"api",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "SellerFun",
+			"item": [
+				{
+					"name": "create dish",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtY2RvbmFsZHMiLCJ1c2VySWQiOjQsInJvbGUiOiJSRVNUQVVSQU5UX1JFUFJFU0VOVEFUSVZFIiwiY29tcGFueSI6Im1jZG9uYWxkcyIsImlhdCI6MTc0NzAxMzM5NCwiZXhwIjoxNzQ3MDk5Nzk0fQ.MLl17QIB4rcVErZV7m1J14GrXYXym7n5rs1VIzArewg",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/create?name=burger&description=beef burger&price=200&stockCount=200",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"create"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "burger"
+								},
+								{
+									"key": "description",
+									"value": "beef burger"
+								},
+								{
+									"key": "price",
+									"value": "200"
+								},
+								{
+									"key": "stockCount",
+									"value": "200"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create dish",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtY2RvbmFsZHMiLCJ1c2VySWQiOjQsInJvbGUiOiJSRVNUQVVSQU5UX1JFUFJFU0VOVEFUSVZFIiwiY29tcGFueSI6Im1jZG9uYWxkcyIsImlhdCI6MTc0NzAxMzM5NCwiZXhwIjoxNzQ3MDk5Nzk0fQ.MLl17QIB4rcVErZV7m1J14GrXYXym7n5rs1VIzArewg",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/create?name=la7ma&description=la7ma medium fat&price=200&stockCount=5",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"create"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "la7ma"
+								},
+								{
+									"key": "description",
+									"value": "la7ma medium fat"
+								},
+								{
+									"key": "price",
+									"value": "200"
+								},
+								{
+									"key": "stockCount",
+									"value": "5"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update dish",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtY2RvbmFsZHMiLCJ1c2VySWQiOjQsInJvbGUiOiJSRVNUQVVSQU5UX1JFUFJFU0VOVEFUSVZFIiwiY29tcGFueSI6Im1jZG9uYWxkcyIsImlhdCI6MTc0NzAxMzM5NCwiZXhwIjoxNzQ3MDk5Nzk0fQ.MLl17QIB4rcVErZV7m1J14GrXYXym7n5rs1VIzArewg",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/update?dishId=2&name=la7ma&description=la7ma welldone fat&price=2000&stockCount=3",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"update"
+							],
+							"query": [
+								{
+									"key": "dishId",
+									"value": "2"
+								},
+								{
+									"key": "name",
+									"value": "la7ma"
+								},
+								{
+									"key": "description",
+									"value": "la7ma welldone fat"
+								},
+								{
+									"key": "price",
+									"value": "2000"
+								},
+								{
+									"key": "stockCount",
+									"value": "3"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "getDishes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtY2RvbmFsZHMiLCJ1c2VySWQiOjQsInJvbGUiOiJSRVNUQVVSQU5UX1JFUFJFU0VOVEFUSVZFIiwiY29tcGFueSI6Im1jZG9uYWxkcyIsImlhdCI6MTc0NzAxMzM5NCwiZXhwIjoxNzQ3MDk5Nzk0fQ.MLl17QIB4rcVErZV7m1J14GrXYXym7n5rs1VIzArewg",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/getDishes",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"getDishes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete dish",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtY2RvbmFsZHMiLCJ1c2VySWQiOjQsInJvbGUiOiJSRVNUQVVSQU5UX1JFUFJFU0VOVEFUSVZFIiwiY29tcGFueSI6Im1jZG9uYWxkcyIsImlhdCI6MTc0NzAxMzM5NCwiZXhwIjoxNzQ3MDk5Nzk0fQ.MLl17QIB4rcVErZV7m1J14GrXYXym7n5rs1VIzArewg",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/delete?dishId=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"delete"
+							],
+							"query": [
+								{
+									"key": "dishId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "TODO",
+			"item": [
+				{
+					"name": "getSoldDishes (not working) seller",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJrZW50YWtpIiwidXNlcklkIjozLCJyb2xlIjoiUkVTVEFVUkFOVF9SRVBSRVNFTlRBVElWRSIsImNvbXBhbnkiOiJrZW50YWtpIiwiaWF0IjoxNzQ2ODk3MjkxLCJleHAiOjE3NDY5ODM2OTF9.9J21qNHcYcwE1Y7Ip-XlmJAqFLM-k2qfBk-U2GYpcWk",
+								"description": "seller",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/product-service/api/dish/getSoldDishes",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"product-service",
+								"api",
+								"dish",
+								"getSoldDishes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get past Order user",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

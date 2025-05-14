@@ -2,6 +2,7 @@ package com.example.product.service;
 
 import com.example.product.model.Dish;
 import jakarta.ejb.Stateless;
+import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.ws.rs.core.Response;
@@ -12,10 +13,29 @@ import java.util.List;
 public class DishService {
     @PersistenceContext(unitName = "product-service")
     EntityManager entityManager;
+    
+    @Inject
+    private NotificationService notificationService;
 
     public Response createDish(String name, String description, double price, String companyName, int stockCount) {
         Dish dish = new Dish(name, description, price, companyName, stockCount);
         entityManager.persist(dish);
+        
+        // Log the new dish creation
+        notificationService.sendLogMessage("Info", 
+            "New dish created: " + name + " by " + companyName);
+            
+        // Check if initial stock is low
+        if (stockCount < 10) {
+            notificationService.sendStockNotification(
+                dish.getId(), 
+                dish.getName(), 
+                stockCount
+            );
+            notificationService.sendLogMessage("Warning", 
+                "Low initial stock for new dish " + dish.getName() + " (" + companyName + "): " + stockCount);
+        }
+        
         return Response.ok("Dish created").build();
     }
 
@@ -38,14 +58,14 @@ public class DishService {
         return Response.ok(dish).build();
     }
 
+
+
     public Response getDishesByCompanyName(String companyName){
         List<Dish> dishes = entityManager.createNamedQuery("Dish.findByCompanyName", Dish.class)
                 .setParameter("companyName", companyName)
                 .getResultList();
         return Response.ok(dishes).build();
-    }
-
-    public Response updateDish(Long dishId, String name, String description, Double price, Integer stockCount, String companyName) {
+    }    public Response updateDish(Long dishId, String name, String description, Double price, Integer stockCount, String companyName) {
         Dish dish = entityManager.find(Dish.class, dishId);
         if (dish == null || !dish.getCompanyName().equals(companyName)) {
             return Response.status(Response.Status.NOT_FOUND).entity("Dish not found or unauthorized").build();
@@ -60,8 +80,31 @@ public class DishService {
         if (price != null && price > 0) {
             dish.setPrice(price);
         }
+        
+        // Check for stock count changes and send notifications if needed
         if (stockCount != null && stockCount >= 0) {
+            int oldStockCount = dish.getStockCount();
             dish.setStockCount(stockCount);
+            
+            // Check if stock is low (below 10) and notify sellers
+            if (stockCount < 10) {
+                notificationService.sendStockNotification(
+                    dishId, 
+                    dish.getName(), 
+                    stockCount
+                );
+                
+                // Log low stock event
+                notificationService.sendLogMessage("Warning", 
+                    "Low stock for dish " + dish.getName() + " (" + companyName + "): " + stockCount + " remaining");
+            }
+            
+            // Log if stock was increased
+            if (stockCount > oldStockCount) {
+                notificationService.sendLogMessage("Info", 
+                    "Stock increased for dish " + dish.getName() + " (" + companyName + "): " + 
+                    oldStockCount + " → " + stockCount);
+            }
         }
 
         entityManager.merge(dish);

@@ -27,13 +27,39 @@ public class AuthController {
             @QueryParam("username") String username,
             @QueryParam("password") String password,
             @QueryParam("email") String email) {
-        return userService.createUser(
-                username,
-                password,
-                email,
-                null,
-                Role.CUSTOMER
-        );
+        if (username == null || username.trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"message\": \"Username is required\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+        if (password == null || password.trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"message\": \"Password is required\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+        if (email == null || email.trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"message\": \"Email is required\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+        if (userService.isUsernameTaken(username)) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity("{\"message\": \"Username already exists\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+
+        // Create the user
+        userService.createUser(username, password, email, null, Role.CUSTOMER);
+
+        // Return a JSON response
+        return Response.status(Response.Status.CREATED)
+                .entity("{\"message\": \"User created successfully\"}")
+                .type(MediaType.APPLICATION_JSON)
+                .build();
     }
 
     @POST

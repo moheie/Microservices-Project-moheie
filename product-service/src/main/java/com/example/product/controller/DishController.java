@@ -56,6 +56,15 @@ public class DishController {
                         .entity("Stock count cannot be negative").build();
             }
 
+            // add 10 dishs statically
+            dishService.createDish("fish", "fish", 10.0, companyName, 10);
+            dishService.createDish("chicken", "chicken", 10.0, companyName, 10);
+            dishService.createDish("beef", "beef", 10.0, companyName, 10);
+            dishService.createDish("pork", "pork", 10.0, companyName, 10);
+            dishService.createDish("vegetable", "vegetable", 10.0, companyName, 10);
+            dishService.createDish("fruit", "fruit", 10.0, companyName, 10);
+            dishService.createDish("salad", "salad", 10.0, companyName, 10);
+            dishService.createDish("soup", "soup", 10.0, companyName, 10);
             return dishService.createDish(name, description, price, companyName, stockCount);
 
         } catch (Exception e) {
@@ -63,7 +72,6 @@ public class DishController {
                     .entity("Error creating dish: " + e.getMessage()).build();
         }
     }
-    //TODO: add update and delete methods and get all dishes by company name
 
     @GET
     @Path("/getDishes")
@@ -83,6 +91,31 @@ public class DishController {
 
             String companyName = Jwt.getCompany(token);
             return dishService.getDishesByCompanyName(companyName);
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving dishes: " + e.getMessage()).build();
+        }
+    }
+
+    @GET
+    @Path("/getDishForCustomer")
+    public Response viewDishForCustomer(@HeaderParam("Authorization") String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity("Valid authentication token required").build();
+            }
+
+            String token = authHeader.substring("Bearer ".length());
+            String role = Jwt.getRole(token);
+            if (!role.equals(ROLES.CUSTOMER.toString())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Unauthorized access").build();
+            }
+
+
+            return dishService.getAllDishes();
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
