@@ -1,6 +1,8 @@
-<template>
-  <div class="seller-dashboard container mt-5">
-    <h1 class="text-center mb-4">Seller Dashboard</h1>
+<template>  <div class="seller-dashboard container mt-5">
+    <div class="d-flex justify-content-between align-items-center">
+      <h1 class="mb-4">Seller Dashboard</h1>
+      <notification-bell user-type="seller" />
+    </div>
     <p v-if="user" class="text-center mb-5">Welcome, {{ user.username }}! This is your dashboard.</p>
     <p v-else class="text-center">Loading user information...</p>
 
@@ -192,9 +194,13 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import axios from 'axios';
 import { getAuthHeaders } from '@/utils/auth';
+import NotificationBell from '@/components/NotificationBell.vue';
 
 export default {
   name: 'SellerDashboard',
+  components: {
+    NotificationBell
+  },
   setup() {
     const store = useStore();
     const user = computed(() => store.getters.currentUser);

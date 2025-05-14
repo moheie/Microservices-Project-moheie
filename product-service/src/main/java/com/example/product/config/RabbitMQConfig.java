@@ -1,31 +1,39 @@
-package com.example.product.messaging;
+package com.example.product.config;
 
 import com.example.product.model.Dish;
-import com.example.product.service.DishService;
+import com.rabbitmq.client.DeliverCallback;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.ejb.Singleton;
 import jakarta.ejb.Startup;
-import jakarta.inject.Inject;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import com.rabbitmq.client.*;
 
 @Singleton
 @Startup
-public class StockCheckListener {
-    private static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
-    public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
+public class RabbitMQConfig {
+    private Connection connection;
+    private Channel channel;
 
     @PersistenceContext(unitName = "product-service")
     private EntityManager entityManager;
 
-    private Connection connection;
-    private Channel channel;
+    public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
+    private static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
+
+    public static final String STOCK_CHECK_QUEUE = "stock-check";
+    public static final String LOG_EXCHANGE = "log";
+    public static final String PAYMENTS_EXCHANGE = "payments-exchange";
 
     @PostConstruct
     public void init() {
@@ -39,8 +47,12 @@ public class StockCheckListener {
             connection = factory.newConnection();
             channel = connection.createChannel();
 
-            channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, false, false, false, null);
-            channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, false, false, false, null);
+            // Ensure exchanges exist
+            channel.exchangeDeclare(LOG_EXCHANGE, "topic", true);
+            channel.exchangeDeclare(PAYMENTS_EXCHANGE, "direct", true);
+
+            channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, true, false, false, null);
+            channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, true, false, false, null);
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -48,9 +60,16 @@ public class StockCheckListener {
             };
 
             channel.basicConsume(ORDER_STOCK_CHECK_QUEUE, true, deliverCallback, consumerTag -> {});
-        } catch (Exception e) {
-            e.printStackTrace();
+            
+            // Declare queues
+            channel.queueDeclare(STOCK_CHECK_QUEUE, true, false, false, null);
+        } catch (IOException | TimeoutException e) {
+            throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
         }
+    }
+
+    public Channel getChannel() {
+        return channel;
     }
 
     private void processStockCheckRequest(String message) {
@@ -108,5 +127,19 @@ public class StockCheckListener {
             }
         }
         return totalPrice;
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        try {
+            if (channel != null && channel.isOpen()) {
+                channel.close();
+            }
+            if (connection != null && connection.isOpen()) {
+                connection.close();
+            }
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -1,12 +1,14 @@
-<template>
-  <div class="container">
-    <div class="dashboard-header text-center mb-4">
-      <h1 class="mb-3">Customer Dashboard</h1>
-      <div v-if="user" class="user-info">
+<template>  <div class="container">
+    <div class="dashboard-header mb-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <h1 class="mb-3">Customer Dashboard</h1>
+        <notification-bell user-type="customer" />
+      </div>
+      <div v-if="user" class="user-info text-center">
         <h2 class="welcome">Welcome, {{ user.username }}!</h2>
         <p class="text-muted">{{ user.email }}</p>
       </div>
-      <div v-else class="p-3">
+      <div v-else class="p-3 text-center">
         <div class="spinner-border" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
@@ -110,9 +112,13 @@ import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import NotificationBell from '@/components/NotificationBell.vue';
 
 export default {
   name: 'CustomerDashboard',
+  components: {
+    NotificationBell
+  },
   setup() {
     const store = useStore();
     const router = useRouter();
