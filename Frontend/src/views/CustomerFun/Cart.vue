@@ -23,8 +23,7 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="(item, index) in cart.items" :key="index">
+            <tbody>              <tr v-for="(item, index) in cart.items" :key="index">
                 <td>{{ item.dishName }}</td>
                 <td>{{ item.companyName }}</td>
                 <td>${{ formatPrice(item.dishPrice) }}</td>
@@ -82,6 +81,7 @@ export default {
       try {
         const headers = getAuthHeaders();
         const response = await axios.get('http://localhost:8084/order-service/api/cart/get', {headers});
+        console.log('Cart response:', response.data);
         cart.value = response.data;
       } catch (err) {
         error.value = 'Failed to load cart. Please try again.';
@@ -101,37 +101,13 @@ export default {
       }, 0);
     };
 
-    const formatPrice = (price) => {
-      return price.toFixed(2);
-    };    const increaseQuantity = async (item) => {
-      try {
-        await axios.post(`http://localhost:8084/order-service/api/cart/add`, null, {
-          params: {
-            productId: item.productId,
-            quantity: 1,
-            dishName: item.dishName,
-            dishPrice: item.dishPrice,
-            companyName: item.companyName
-          },
-          headers: getAuthHeaders()
-        });
-        fetchCart();
-      } catch (err) {
-        error.value = 'Failed to update item quantity. Please try again.';
-        console.error('Error updating quantity:', err);
-        if (err.response && err.response.status === 401) {
-          store.commit('LOGOUT');
-          window.location.href = '/login';
-        }
-      }
-    };
 
     const decreaseQuantity = async (item) => {
       if (item.quantity > 1) {
         try {
           await axios.delete(`http://localhost:8084/order-service/api/cart/remove`, {
             params: {
-              productId: item.productId,
+              productId: item.id, // Use 'id' instead of 'productId'
               quantity: 1
             },
             headers: getAuthHeaders()
@@ -150,11 +126,34 @@ export default {
       }
     };
 
+    const increaseQuantity = async (item) => {
+      try {
+        await axios.post(`http://localhost:8084/order-service/api/cart/add`, null, {
+          params: {
+            productId: item.id, // Use 'id' instead of 'productId'
+            quantity: 1,
+            dishName: item.dishName,
+            dishPrice: item.dishPrice,
+            companyName: item.companyName
+          },
+          headers: getAuthHeaders()
+        });
+        fetchCart();
+      } catch (err) {
+        error.value = 'Failed to update item quantity. Please try again.';
+        console.error('Error updating quantity:', err);
+        if (err.response && err.response.status === 401) {
+          store.commit('LOGOUT');
+          window.location.href = '/login';
+        }
+      }
+    };
+
     const removeItem = async (item) => {
       try {
         await axios.delete(`http://localhost:8084/order-service/api/cart/remove`, {
           params: {
-            productId: item.productId,
+            productId: item.id, // Use 'id' instead of 'productId'
             quantity: item.quantity
           },
           headers: getAuthHeaders()
@@ -199,7 +198,6 @@ export default {
       loading,
       error,
       calculateTotal,
-      formatPrice,
       increaseQuantity,
       decreaseQuantity,
       removeItem,

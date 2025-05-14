@@ -16,9 +16,6 @@ public class Cart implements Serializable {
     @Column(nullable = false)
     private Long userId;
 
-    @Column
-    private String userName;
-
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = "cart_id")
     private List<OrderDish> dishes = new ArrayList<>();
@@ -33,8 +30,6 @@ public class Cart implements Serializable {
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
 
-    public String getUserName() { return userName; }
-    public void setUserName(String userName) { this.userName = userName; }
 
     public List<OrderDish> getDishes() { return dishes; }
     public void setDishes(List<OrderDish> dishes) { this.dishes = dishes; }

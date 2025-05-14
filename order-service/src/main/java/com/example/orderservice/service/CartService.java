@@ -41,7 +41,6 @@ public class CartService implements Serializable {
             // Create a new in-memory cart
             this.currentCart = new Cart();
             this.currentCart.setUserId(userId);
-            this.currentCart.setUserName(Jwt.getUsername(token));
         }
         this.isDirty = false;
     }

@@ -15,7 +15,8 @@ import java.util.concurrent.TimeoutException;
 @Startup
 public class RabbitMQConfig {
     private Connection connection;
-    private Channel channel;    public static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
+    private Channel channel;
+    public static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
     public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
     public static final String ORDER_CONFIRMATION_QUEUE = "order-confirmation";
     public static final String PAYMENT_FAILED_QUEUE = "payment-failed";

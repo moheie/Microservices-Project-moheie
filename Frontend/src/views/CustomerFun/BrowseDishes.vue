@@ -27,6 +27,33 @@ export default {
       }
     };
 
+    const addToCartFromBrowse = async (dish) => {
+      try {
+        const headers = getAuthHeaders();
+        console.log('Adding to cart:', dish);
+        console.log('Headers:', headers);
+        
+        await axios.post(
+          `http://localhost:8084/order-service/api/cart/add`,
+          null, 
+          {
+            headers: headers,
+            params: {
+              dishId: dish.id, 
+              quantity: 1,
+              dishName: dish.name,
+              dishPrice: dish.price, 
+              companyName: dish.companyName
+            }
+          }
+        );
+        alert('Item added to cart successfully!');
+      } catch (err) {
+        console.error('Error adding to cart:', err);
+        alert('Failed to add item to cart. Please try again.');
+      }
+    };
+
     const restaurants = computed(() => {
       const uniqueRestaurants = new Set();
       dishes.value.forEach(dish => {
@@ -78,7 +105,8 @@ export default {
       restaurants,
       filteredDishes,
       formatPrice,
-        formatStock
+      formatStock,
+      addToCartFromBrowse
     };
   }
 }
@@ -141,9 +169,9 @@ export default {
                   <p class="price">${{ formatPrice(dish.price) }}</p>
                 </div>
                 <div class="card-footer">
-                  <router-link :to="'/cart'" class="btn btn-primary w-100">
-                    Add To Cart
-                  </router-link>
+                  <button class ="btn btn-primary" @click="addToCartFromBrowse(dish)">
+                    Add to Cart
+                  </button>
                 </div>
               </div>
             </div>
