@@ -38,3 +38,6 @@ build/
 ### Mac OS ###
 .DS_Store
 .idea/misc.xml
+
+#vue.js #
+node_modules/

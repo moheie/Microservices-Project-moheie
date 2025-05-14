@@ -38,6 +38,8 @@ public class DishService {
         return Response.ok(dish).build();
     }
 
+
+
     public Response getDishesByCompanyName(String companyName){
         List<Dish> dishes = entityManager.createNamedQuery("Dish.findByCompanyName", Dish.class)
                 .setParameter("companyName", companyName)
