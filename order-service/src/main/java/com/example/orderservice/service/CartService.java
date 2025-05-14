@@ -3,12 +3,17 @@ package com.example.orderservice.service;
 import com.example.orderservice.model.Cart;
 import com.example.orderservice.repository.CartRepository;
 import com.example.orderservice.utils.Jwt;
-import jakarta.ejb.Stateful;
-import jakarta.inject.Inject;
 import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import java.io.Serializable;
 
-@Stateful
-public class CartService {
+@Named
+@SessionScoped
+public class CartService implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     @Inject
     private CartRepository cartRepository;
 
@@ -27,9 +32,15 @@ public class CartService {
 
         this.currentUserId = userId;
 
-        // Create a new in-memory cart
-        this.currentCart = new Cart();
-        this.currentCart.setUserId(userId);
+        // Try to load existing cart from database
+        Cart existingCart = cartRepository.findByUserId(userId);
+        if (existingCart != null) {
+            this.currentCart = existingCart;
+        } else {
+            // Create a new in-memory cart
+            this.currentCart = new Cart();
+            this.currentCart.setUserId(userId);
+        }
         this.isDirty = false;
     }
 
@@ -83,18 +94,10 @@ public class CartService {
     }
 
     /**
-     * Only call this method when you want to persist the cart to database
-     * (e.g., when checking out)
+     * Persists the cart to database
      */
     public Cart persistCart() {
         if (this.currentCart != null && this.isDirty) {
-            // Delete any existing cart for this user
-            Cart existingCart = cartRepository.findByUserId(currentUserId);
-            if (existingCart != null) {
-                cartRepository.delete(existingCart);
-            }
-
-            // Save the current cart
             this.currentCart = cartRepository.save(this.currentCart);
             this.isDirty = false;
         }
@@ -103,9 +106,14 @@ public class CartService {
 
     @PreDestroy
     public void cleanup() {
-        // Don't persist cart when bean is destroyed
-        currentCart = null;
-        currentUserId = null;
-        isDirty = false;
+        // Optionally persist cart when session ends
+        if (isDirty && currentCart != null) {
+            try {
+                persistCart();
+            } catch (Exception e) {
+                // Log the exception
+                System.err.println("Failed to persist cart during cleanup: " + e.getMessage());
+            }
+        }
     }
 }

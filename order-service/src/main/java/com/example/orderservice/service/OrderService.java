@@ -23,12 +23,12 @@ public class OrderService {
     @Inject
     private OrderRepository orderRepository;
 
-    @EJB
+    @Inject
     private CartService cartService;
 
     @Inject
     private RabbitMQConfig rabbitMQConfig;
-    
+
     @Inject
     private NotificationSender notificationSender;
 

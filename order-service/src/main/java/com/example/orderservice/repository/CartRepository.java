@@ -6,8 +6,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.NoResultException;
 
+import java.io.Serializable;
+
 @Stateless
-public class CartRepository {
+public class CartRepository implements Serializable {
     @PersistenceContext
     private EntityManager entityManager;
 
