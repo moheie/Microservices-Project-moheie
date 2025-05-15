@@ -1,6 +1,8 @@
 <template>  <div class="seller-dashboard container mt-5">
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="p-3 text-center">
       <h1 class="mb-4">Seller Dashboard</h1>
+    </div>
+    <div class="notification-bell mb-4">
       <notification-bell user-type="seller" />
     </div>
     <p v-if="user" class="text-center mb-5">Welcome, {{ user.username }}! This is your dashboard.</p>
@@ -38,7 +40,7 @@
             <i class="bi bi-clock-history fs-1 mb-3 text-info"></i>
             <h3>Order History</h3>
             <p>View your past orders and sales history</p>
-            <button @click="showOrderHistory = true" class="btn btn-info w-100">View History</button>
+            <button @click="showOrdersHistory" class="btn btn-info w-100">View History</button>
           </div>
         </div>
       </div>
@@ -166,7 +168,7 @@
                       <td>{{ formatDate(order.createdAt) }}</td>
                       <td>
                         <ul class="list-unstyled mb-0">
-                          <li v-for="dish in order.dishes" :key="dish.id">
+                          <li v-for="dish in order.companyDishes" :key="dish.id">
                             {{ dish.name }} x{{ dish.quantity }}
                           </li>
                         </ul>
@@ -234,18 +236,19 @@ export default {
       }
     };
 
-    // const fetchOrders = async () => {
-    //   loadingOrders.value = true;
-    //   try {
-    //     const response = await axios.get('http://localhost:8083/product-service/api/dish/getSoldDishes', {
-    //       headers: getAuthHeaders()
-    //     });
-    //     orders.value = response.data;
-    //   } catch (err) {
-    //     console.error('Error fetching orders:', err);
-    //   } finally {
-    //     loadingOrders.value = false;
-    //   }    // };    
+    const fetchOrders = async () => {
+      loadingOrders.value = true;
+      try {
+        const response = await axios.get('http://localhost:8084/order-service/api/orders/byCompany', {
+          headers: getAuthHeaders()
+        });
+        orders.value = response.data || [];
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+      } finally {
+        loadingOrders.value = false;
+      }
+    };  
     
     const saveDish = async () => {
       try {
@@ -321,16 +324,20 @@ export default {
 
     const formatPrice = (price) => {
       return parseFloat(price).toFixed(2);
-    };
-
-    const formatDate = (date) => {
+    };    const formatDate = (date) => {
+      if (Array.isArray(date)) {
+        // Format is [year, month, day, hour, minute, second, nanosecond]
+        const [year, month, day, hour, minute, second] = date;
+        return new Date(year, month-1, day, hour, minute, second).toLocaleString();
+      }
       return new Date(date).toLocaleString();
-    };
-
-    const calculateOrderTotal = (order) => {
-      return formatPrice(order.dishes.reduce((total, dish) => {
+    };const calculateOrderTotal = (order) => {
+      return formatPrice(order.companyDishes.reduce((total, dish) => {
         return total + (dish.price * dish.quantity);
       }, 0));
+    };    const showOrdersHistory = async () => {
+      await fetchOrders();
+      showOrderHistory.value = true;
     };
 
     onMounted(() => {
@@ -352,9 +359,10 @@ export default {
       deleteDish,
       editDish,
       closeAddDishModal,
-      formatPrice,
-      formatDate,
-      calculateOrderTotal
+      formatPrice,      formatDate,
+      calculateOrderTotal,
+      fetchOrders,
+      showOrdersHistory,
     };
   }
 };
@@ -389,5 +397,11 @@ export default {
 
 .bi {
   opacity: 0.8;
+}
+
+.notification-bell {
+  position: absolute;
+  top: 50px;
+  right: 20px;
 }
 </style>

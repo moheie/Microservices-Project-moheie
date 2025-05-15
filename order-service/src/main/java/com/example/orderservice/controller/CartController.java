@@ -85,6 +85,7 @@ public class CartController {
         try {
             cartService.initializeCart(token);
             cartService.addProductsToCart(productId, quantity, dishName, dishPrice, companyName);
+            cartService.persistCart();
             return Response.ok("Product added to cart").build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -116,7 +117,7 @@ public class CartController {
     @Path("/remove")
     public Response removeFromCart(
             @HeaderParam("Authorization") String authHeader,
-            @QueryParam("productId") Long productId, @QueryParam("quantity") int quantity) {
+            @QueryParam("productId") Long productId) {
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -129,11 +130,40 @@ public class CartController {
         }
         try {
             cartService.initializeCart(token);
-            cartService.removeProductFromCart(productId, quantity);
+            cartService.removeProductFromCart(productId);
+            cartService.persistCart();
             return Response.ok("Product removed from cart").build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error removing product from cart: " + e.getMessage()).build();
+        }
+    }
+
+    @PUT
+    @Path("/update")
+    public Response updateCart(
+            @HeaderParam("Authorization") String authHeader,
+            @QueryParam("productId") Long productId, @QueryParam("quantity") int quantity) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+
+        String token = authHeader.substring("Bearer ".length());
+
+        if (productId == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Product ID is required").build();
+        }
+
+        try {
+            cartService.initializeCart(token);
+            cartService.updateDishInCart(productId, quantity);
+            cartService.persistCart();
+            return Response.ok("Cart updated").build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error updating cart: " + e.getMessage()).build();
         }
     }
 

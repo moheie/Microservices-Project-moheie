@@ -120,7 +120,7 @@ export default {
 
     const getOrderTotal = (order) => {
       if (!order.dishes || order.dishes.length === 0) return 0;
-      return order.dishes.reduce((total, dish) => total + dish.price, 0);
+      return order.dishes.reduce((total, dish) => total + dish.price*dish.quantity, 0);
     };
 
     const getGroupedDishes = (dishes) => {
@@ -135,32 +135,38 @@ export default {
         } else {
           acc.push({
             ...dish,
-            quantity: 1,
-            totalPrice: dish.price
+            quantity: dish.quantity,
+            totalPrice: dish.price * dish.quantity
           });
         }
         return acc;
       }, []);
       
       return groupedDishes;
-    };    const cancelOrder = async (orderId) => {
-      try {
-        const headers = getAuthHeaders();
-        await axios.post(`http://localhost:8084/order-service/api/orders/cancel/${orderId}`, {}, { headers });
-        // Update the local state
-        const orderIndex = orders.value.findIndex(order => order.id === orderId);
-        if (orderIndex !== -1) {
-          orders.value[orderIndex].status = 'CANCELED';
-        }
-      } catch (err) {
-        error.value = 'Failed to cancel order. Please try again.';
-        console.error('Error canceling order:', err);
-        if (err.response && err.response.status === 401) {
-          store.commit('LOGOUT');
-          window.location.href = '/login';
-        }
-      }
-    };
+    };    
+    
+    // const cancelOrder = async (orderId) => {
+    //   try {
+    //     const headers = getAuthHeaders();
+    //     await axios.delete(`http://localhost:8084/order-service/api/orders/cancel`, { headers }
+    //     ,{
+    //       params: { orderId }
+    //     }
+    //     );
+    //     // Update the local state
+    //     const orderIndex = orders.value.findIndex(order => order.id === orderId);
+    //     if (orderIndex !== -1) {
+    //       orders.value[orderIndex].status = 'CANCELED';
+    //     }
+    //   } catch (err) {
+    //     error.value = 'Failed to cancel order. Please try again.';
+    //     console.error('Error canceling order:', err);
+    //     if (err.response && err.response.status === 401) {
+    //       store.commit('LOGOUT');
+    //       window.location.href = '/login';
+    //     }
+    //   }
+    // };
 
     onMounted(() => {
       fetchOrders();
@@ -180,7 +186,7 @@ export default {
       getProgressBarClass,
       getOrderTotal,
       getGroupedDishes,
-      cancelOrder,
+      // cancelOrder,
     };
   }
 }
@@ -257,9 +263,10 @@ export default {
                         <td>${{ formatPrice(item.totalPrice) }}</td>
                       </tr>
                     </tbody>
-                  </table>                  <div v-if="order.status === 'PENDING'" class="mt-3 d-flex justify-content-end">
-                    <button class="btn btn-danger" @click="cancelOrder(order.id)">Cancel Order</button>
-                  </div>
+                  </table>                  
+                  <!-- <div v-if="order.status === 'PENDING'" class="mt-3 d-flex justify-content-end">
+                    <button class="btn btn-danger">Cancel Order</button>
+                  </div> -->
                 </div>
               </div>
               <div class="card-footer bg-white">

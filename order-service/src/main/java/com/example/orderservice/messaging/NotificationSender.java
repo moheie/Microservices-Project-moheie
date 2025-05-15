@@ -91,6 +91,24 @@ public class NotificationSender {
             System.err.println("Failed to send log message: " + e.getMessage());
         }
     }
+
+    public void sendOrderCancellation(Long orderId, String reason) {
+        try {
+            String message = orderId + ":" + reason;
+            Channel channel = rabbitMQConfig.getChannel();
+
+            channel.basicPublish(
+                "",  // Default exchange
+                "order-cancellation",  // Queue name
+                null,
+                message.getBytes(StandardCharsets.UTF_8)
+            );
+
+            System.out.println("Sent order cancellation: " + message);
+        } catch (IOException e) {
+            System.err.println("Failed to send order cancellation: " + e.getMessage());
+        }
+    }
     
     /**
      * Send a stock check notification

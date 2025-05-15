@@ -112,4 +112,27 @@ public class OrderController {
         }
     }
 
+//    @DELETE
+//    @Path("/cancel")
+//    public Response cancelOrder(
+//            @HeaderParam("Authorization") String authHeader,
+//            @QueryParam("id") Long orderId) {
+//        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+//            return Response.status(Response.Status.UNAUTHORIZED)
+//                    .entity("Valid authentication token required").build();
+//        }
+//
+//        String token = authHeader.substring("Bearer ".length());
+//
+//        try {
+//            orderService.cancelOrder(token, orderId);
+//            return Response.status(Response.Status.OK).entity("Order canceled successfully").build();
+//        } catch (IllegalStateException e) {
+//            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+//        } catch (Exception e) {
+//            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+//                    .entity("Error canceling order: " + e.getMessage()).build();
+//        }
+//    }
+
 }

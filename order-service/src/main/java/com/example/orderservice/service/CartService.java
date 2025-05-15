@@ -28,6 +28,7 @@ public class CartService implements Serializable {
 
         // If the user is the same, keep using the existing cart
         if (this.currentUserId != null && this.currentUserId.equals(userId) && this.currentCart != null) {
+            forceRefreshCart();
             return;
         }
 
@@ -66,32 +67,56 @@ public class CartService implements Serializable {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
         }
 
-        // Create the OrderDish object once
-        OrderDish dish = new OrderDish(productId, dishName, companyName, dishPrice);
+        forceRefreshCart();
 
         // Add the specified quantity
         for (int i = 0; i < quantity; i++) {
             // Add to productIds for backward compatibility
             this.currentCart.addProductId(productId);
 
-            // Add a new instance of the dish for each quantity
-            // This ensures that removing one dish doesn't remove all of them
             this.currentCart.addDish(new OrderDish(productId, dishName, companyName, dishPrice));
         }
 
         this.isDirty = true;
     }
 
-    public void removeProductFromCart(Long productId, int quantity) {
+    public void removeProductFromCart(Long productId) {
         if (this.currentCart == null) {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
         }
 
-        for (int i = 0; i < quantity; i++) {
-            this.currentCart.removeProductId(productId);
-            this.currentCart.removeDish(productId);
-        }
+        forceRefreshCart();
+
+        this.currentCart.removeProductId(productId);
+        this.currentCart.removeDish(productId);
+
         this.isDirty = true;
+    }
+
+    //update dish from cart (only the quantity)
+    public void updateDishInCart(Long productId, int quantity) {
+        if (this.currentCart == null) {
+            throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
+        }
+
+        forceRefreshCart();
+
+        for (OrderDish dish : this.currentCart.getDishes()) {
+            if (dish.getDishId().equals(productId)) {
+                dish.setQuantity(quantity);
+                this.isDirty = true;
+                break;
+            }
+        }
+    }
+
+    public void forceRefreshCart() {
+        if (this.currentUserId != null) {
+            Cart refreshedCart = cartRepository.findByUserId(this.currentUserId);
+            if (refreshedCart != null) {
+                this.currentCart = refreshedCart;
+            }
+        }
     }
 
     public void clearCart() {

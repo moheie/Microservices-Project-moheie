@@ -35,4 +35,5 @@ public class CartRepository implements Serializable {
     public void delete(Cart cart) {
         entityManager.remove(entityManager.contains(cart) ? cart : entityManager.merge(cart));
     }
+
 }

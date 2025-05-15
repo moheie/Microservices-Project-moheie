@@ -97,7 +97,8 @@ public class OrderService {
                         dish.getDishId(),
                         dish.getName(),
                         dish.getCompanyName(),
-                        dish.getPrice()
+                        dish.getPrice(),
+                        dish.getQuantity()
                 );
                 orderDishes.add(newDish);
             }
@@ -223,6 +224,8 @@ public class OrderService {
         }
     }
 
+
+
     public Order getOrder(Long orderId) {
         return orderRepository.findById(orderId);
     }
@@ -236,6 +239,28 @@ public class OrderService {
 
         return orderRepository.findByCompanyName(companyName);
     }
+
+
+//    public void cancelOrder(String token, Long orderId) {
+//        Long userId = Jwt.getUserId(token);
+//        Order order = orderRepository.findById(orderId);
+//        if (order == null) {
+//            throw new IllegalStateException("Order not found");
+//        }
+//        if (!order.getUserId().equals(userId)) {
+//            throw new IllegalStateException("You cannot cancel this order");
+//        }
+//        if (order.getStatus() != OrderStatus.PENDING) {
+//            throw new IllegalStateException("Order cannot be canceled");
+//        }
+//        if (order.getStatus() == OrderStatus.CANCELED) {
+//            throw new IllegalStateException("Order already canceled");
+//        }
+//        order.setStatus(OrderStatus.CANCELED);
+//        orderRepository.save(order);
+//        notificationSender.sendOrderConfirmation(order.getId(), "canceled", order.getUserId());
+//        notificationSender.sendLogMessage("Order", "Info", "Order " + orderId + " canceled");
+//    }
 
     public List<Order> getOrders(String token) {
         Long userId = Jwt.getUserId(token);

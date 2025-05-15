@@ -16,6 +16,8 @@ public class OrderDish {
     private String companyName;
     @Column(nullable = false)
     private double price;
+    @Column(nullable = false)
+    private int quantity;
 
     // Default constructor required by JPA
     public OrderDish() {}
@@ -26,7 +28,18 @@ public class OrderDish {
         this.name = name;
         this.companyName = companyName;
         this.price = price;
+        this.quantity=1;
     }
+
+    // Constructor with fields for creating from Cart
+    public OrderDish(Long dishId, String name, String companyName, double price, int quantity) {
+        this.dishId = dishId;
+        this.name = name;
+        this.companyName = companyName;
+        this.price = price;
+        this.quantity = quantity;
+    }
+
 
     // Getters and setters
     public Long getId() { return id; }
@@ -43,4 +56,7 @@ public class OrderDish {
 
     public double getPrice() { return price; }
     public void setPrice(double price) { this.price = price; }
+
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
 }

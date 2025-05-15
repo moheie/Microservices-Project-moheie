@@ -1,7 +1,10 @@
-<template>  <div class="container">
-    <div class="dashboard-header mb-4">
-      <div class="d-flex justify-content-between align-items-center">
+<template>  
+<div class="container">
+    <div class="dashboard-header mb-4 ">
+      <div class="p-3 text-center">
         <h1 class="mb-3">Customer Dashboard</h1>
+      </div>
+      <div class="notification-bell">
         <notification-bell user-type="customer" />
       </div>
       <div v-if="user" class="user-info text-center">
@@ -64,7 +67,7 @@
                 <button v-for="order in recentOrders" :key="order.id" 
                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
                   @click="goToRestaurant(order.companyName)">
-                  {{ order.companyName }}
+                  #{{ order.id }}
                   <span class="badge bg-primary rounded-pill">{{ order.date }}</span>
                 </button>
               </div>
@@ -84,16 +87,13 @@
           </div>
           <div class="card-body">
             <div v-if="loading" class="text-center">
-              <div class="spinner-border spinner-border-sm" role="status">
+              <div class="spinner-border" role="status">
                 <span class="visually-hidden">Loading...</span>
               </div>
-              <p>Loading cart information...</p>
+              <p>Loading your cart...</p>
             </div>
-            <div v-else-if="cart && cart.items && cart.items.length" class="d-flex justify-content-between align-items-center">
-              <div>
-                <p><strong>Items in cart:</strong> {{ cart.items.length }}</p>
-                <p><strong>Total:</strong> ${{ calculateTotal() }}</p>
-              </div>
+            <div v-else-if="cart && cart.dishes && cart.dishes.length > 0" class="text-center">
+              <p>You have {{ cart.dishes.length }} items in your cart.</p>
               <router-link to="/cart" class="btn btn-primary">View Cart</router-link>
             </div>
             <div v-else class="text-center">
@@ -125,6 +125,8 @@ export default {
     const cart = ref({ items: [] });
     const loading = ref(true);
     const recentOrders = ref([]);
+    const error = ref(null);
+
 
     const user = computed(() => store.getters.currentUser);
 
@@ -137,46 +139,25 @@ export default {
     const fetchCart = async () => {
       loading.value = true;
       try {
-        const response = await axios.get('http://localhost:8084/order-service/api/cart/get', {
+        const response = await axios.get('http://localhost:8084/order-service/api/cart/dishes', {
           headers: getAuthHeaders()
         });
-        cart.value = response.data;
+        cart.value.dishes = response.data || [];
       } catch (err) {
+        error.value = 'Failed to load cart. Please try again.';
         console.error('Error fetching cart:', err);
-        if (err.response && err.response.status === 401) {
-          store.commit('LOGOUT');
-          window.location.href = '/login';
-        }
       } finally {
         loading.value = false;
       }
     };
 
     const fetchRecentOrders = async () => {
+      const headers = getAuthHeaders();
       try {
-        const response = await axios.get('http://localhost:8084/order-service/api/orders/getOrders', {
-          headers: getAuthHeaders()
-        });
-        if (response.data && response.data.length) {
-          // Process to get unique recent restaurants
-          const restaurants = new Map();
-          response.data.forEach(order => {
-            if (!restaurants.has(order.companyName) && restaurants.size < 3) {
-              restaurants.set(order.companyName, {
-                id: order.id,
-                companyName: order.companyName,
-                date: formatDate(order.orderDate)
-              });
-            }
-          });
-          recentOrders.value = Array.from(restaurants.values());
-        }
+        const response = await axios.get('http://localhost:8084/order-service/api/orders/getOrders', {headers});
+        recentOrders.value = response.data || [];
       } catch (err) {
         console.error('Error fetching recent orders:', err);
-        if (err.response && err.response.status === 401) {
-          store.commit('LOGOUT');
-          window.location.href = '/login';
-        }
       }
     };
 
@@ -186,15 +167,6 @@ export default {
         return sum + (item.dishPrice * item.quantity);
       }, 0);
       return total.toFixed(2);
-    };
-
-    const formatDate = (dateString) => {
-      if (!dateString) return 'N/A';
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
     };
 
     const goToRestaurant = (restaurantName) => {
@@ -253,6 +225,12 @@ export default {
 .bi {
   display: block;
   margin-bottom: 10px;
+}
+
+.notification-bell {
+  position: absolute;
+  top: 50px;
+  right: 20px;
 }
 
 /* For responsive spacing */

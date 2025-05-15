@@ -1,11 +1,14 @@
 <template>
   <div class="admin-dashboard mt-5">
     <div class="container">
-      <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="p-3 text-center">
         <h1>Admin Dashboard</h1>
-        <notification-bell user-type="admin" />
       </div>
       
+      <div class="notification-bell mb-4">
+        <notification-bell user-type="admin" />
+      </div>
+
       <div class="user-info text-center mb-5">
         <p v-if="user" class="h4">Welcome, {{ user.username }}! This is your dashboard.</p>
         <p v-if="user" class="text-muted">Email: {{ user.email }}</p>
@@ -71,4 +74,12 @@ export default {
 .card:hover {
   transform: translateY(-5px);
 }
+
+.notification-bell {
+  position: absolute;
+  top: 50px;
+  right: 20px;
+}
+
 </style>
+

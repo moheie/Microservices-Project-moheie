@@ -32,22 +32,23 @@ export default {
         const headers = getAuthHeaders();
         console.log('Adding to cart:', dish);
         console.log('Headers:', headers);
-        
         await axios.post(
           `http://localhost:8084/order-service/api/cart/add`,
-          null, 
+          {}, // send empty object instead of null
           {
-            headers: headers,
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json'
+            },
             params: {
-              dishId: dish.id, 
+              productId: dish.id,
               quantity: 1,
               dishName: dish.name,
-              dishPrice: dish.price, 
+              dishPrice: dish.price,
               companyName: dish.companyName
             }
           }
         );
-        alert('Item added to cart successfully!');
       } catch (err) {
         console.error('Error adding to cart:', err);
         alert('Failed to add item to cart. Please try again.');
