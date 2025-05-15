@@ -17,9 +17,9 @@
             <li v-if="isCustomer" class="nav-item">
               <router-link class="nav-link" to="/orders">My Orders</router-link>
             </li>
-            <li v-if="isCustomer" class="nav-item">
+            <!-- <li v-if="isCustomer" class="nav-item">
               <router-link class="nav-link" to="/order-confirmation">Order Confirmation</router-link>
-            </li>
+            </li> -->
             <li v-if="isCustomer" class="nav-item">
               <router-link class="nav-link" to="/browse-dishes">Browse Dishes</router-link>
             </li>
@@ -96,7 +96,7 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
   min-height: 100vh;
-  background: url('../a1795bfa180447e15c0e71027646207a.jpg') no-repeat center center fixed;
+  background: url('../1.png') no-repeat center center fixed;
   background-size: cover;
 }
 </style>

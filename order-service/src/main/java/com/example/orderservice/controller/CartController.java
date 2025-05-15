@@ -1,6 +1,7 @@
 package com.example.orderservice.controller;
 
 import com.example.orderservice.model.Cart;
+import com.example.orderservice.model.OrderDish;
 import com.example.orderservice.service.CartService;
 import com.example.orderservice.utils.Roles;
 import jakarta.ejb.EJB;
@@ -9,6 +10,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 
 @Path("/cart")
 @RequestScoped
@@ -36,6 +38,27 @@ public class CartController {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error retrieving cart: " + e.getMessage()).build();
+        }
+    }
+
+    @GET
+    @Path("/dishes")
+    public Response getCartDishes(@HeaderParam("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("Valid authentication token required").build();
+        }
+
+        String token = authHeader.substring("Bearer ".length());
+
+        try {
+            cartService.initializeCart(token);
+            Cart cart = cartService.getCurrentCart();
+            List<OrderDish> dishes = cart.getDishes();
+            return Response.ok(dishes).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error retrieving cart dishes: " + e.getMessage()).build();
         }
     }
 

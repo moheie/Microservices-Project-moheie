@@ -67,12 +67,12 @@ const routes = [
     component: () => import('../views/CustomerFun/Orders.vue'),
     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
   },
-  {
-    path: '/order-confirmation',
-    name: 'OrderConfirmation',
-    component: () => import('../views/CustomerFun/OrderConfirmation.vue'),
-    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
-  },
+  // {
+  //   path: '/order-confirmation',
+  //   name: 'OrderConfirmation',
+  //   component: () => import('../views/CustomerFun/OrderConfirmation.vue'),
+  //   meta: { requiresAuth: true, roles: ['CUSTOMER'] }
+  // },
   {
     path: '/browse-dishes',
     name: 'BrowseDishes',

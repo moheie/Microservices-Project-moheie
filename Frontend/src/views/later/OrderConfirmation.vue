@@ -1,4 +1,29 @@
 <template>
+  <!-- comment  -->
+  <div class="container">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h2>Order Confirmation</h2>
+      </div>
+      <div class="card-body">
+        <div v-if="loading" class="text-center">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p>Loading your cart details...</p>
+        </div>
+        <div v-else-if="error" class="alert alert-danger">
+          {{ error }}
+        </div>
+        <div v-else>
+          <!-- Order confirmation content goes here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- <template>
   <div class="container">
     <div class="card">
       <div class="card-header bg-primary text-white">
@@ -382,4 +407,4 @@ export default {
     box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
   }
 }
-</style>
+</style> -->
