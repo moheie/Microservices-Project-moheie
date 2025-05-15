@@ -62,7 +62,7 @@ public class DishController {
             dishService.createDish("beef", "beef", 10.0, companyName, 10);
             dishService.createDish("pork", "pork", 10.0, companyName, 10);
             dishService.createDish("vegetable", "vegetable", 10.0, companyName, 10);
-            dishService.createDish("fruit", "fruit", 10.0, companyName, 10);
+            dishService.createDish("fruit", "fruit", 10.0, companyName, 3);
             dishService.createDish("salad", "salad", 10.0, companyName, 10);
             dishService.createDish("soup", "soup", 10.0, companyName, 10);
             return dishService.createDish(name, description, price, companyName, stockCount);

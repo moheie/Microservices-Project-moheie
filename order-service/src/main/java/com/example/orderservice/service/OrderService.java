@@ -18,7 +18,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Stateless
 public class OrderService {
@@ -40,7 +42,6 @@ public class OrderService {
     public void setupConsumer() {
         try {
             System.out.println("Setting up consumer for queue: " + RabbitMQConfig.STOCK_CONFIRMATION_QUEUE);
-
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
                 System.out.println("Received message: " + message);
@@ -132,9 +133,27 @@ public class OrderService {
 
     private void checkProductStock(Order order) {
         try {
-            //double totalPrice = calculateTotalPrice(order);
-            String message = order.getId() + ":" + String.join(",",
-                    order.getProductIds().stream().map(Object::toString).toArray(String[]::new)) /*+ ":" + totalPrice*/;
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.append(order.getId()).append(":");
+
+            boolean first = true;
+            // Use dishes which have quantities
+            for (OrderDish dish : order.getDishes()) {
+                Long productId = dish.getDishId();
+                int quantity = dish.getQuantity();
+
+                // Repeat the product ID based on quantity
+                for (int i = 0; i < quantity; i++) {
+                    if (!first) {
+                        messageBuilder.append(",");
+                    }
+                    messageBuilder.append(productId);
+                    first = false;
+                }
+            }
+
+            String message = messageBuilder.toString();
+            System.out.println("Sending stock check message: " + message);
 
             rabbitMQConfig.getChannel().basicPublish("",
                     RabbitMQConfig.ORDER_STOCK_CHECK_QUEUE,
@@ -162,7 +181,7 @@ public class OrderService {
 
         // Calculate total from order dishes instead of relying on product service
         double orderTotal = order.getDishes().stream()
-                .mapToDouble(OrderDish::getPrice)
+                .mapToDouble(dish -> dish.getPrice() * dish.getQuantity())
                 .sum();
 
         System.out.println("Order " + orderId + " processing: inStock=" + inStock +
@@ -212,8 +231,11 @@ public class OrderService {
     private void sendOrderConfirmation(Order order, boolean success) {
         try {
             String message = "Order " + order.getId() + " " + (success ? "confirmed" : "canceled");
-            rabbitMQConfig.getChannel().basicPublish("", RabbitMQConfig.STOCK_CONFIRMATION_QUEUE, null, message.getBytes(StandardCharsets.UTF_8));
-            
+            rabbitMQConfig.getChannel().basicPublish("",
+                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE,  // Use the correct queue
+                    null,
+                    message.getBytes(StandardCharsets.UTF_8));
+
             // Log the event
             if (!success) {
                 notificationSender.sendLogMessage("Order", "Info", message);

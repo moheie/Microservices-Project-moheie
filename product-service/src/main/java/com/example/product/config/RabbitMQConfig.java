@@ -1,6 +1,7 @@
 package com.example.product.config;
 
 import com.example.product.model.Dish;
+import com.example.product.service.DishService;
 import com.rabbitmq.client.DeliverCallback;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -9,6 +10,7 @@ import jakarta.ejb.Startup;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
@@ -16,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -27,6 +30,9 @@ public class RabbitMQConfig {
 
     @PersistenceContext(unitName = "product-service")
     private EntityManager entityManager;
+
+    @Inject
+    private DishService dishService;
 
     public static final String STOCK_CONFIRMATION_QUEUE = "stock-confirmation";
     private static final String ORDER_STOCK_CHECK_QUEUE = "order-stock-check";
@@ -83,51 +89,71 @@ public class RabbitMQConfig {
                     .map(Long::valueOf)
                     .collect(Collectors.toList());
 
-            boolean allInStock = checkStock(productIds);
+            Map<Long, Long> productCounts = productIds.stream()
+                    .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
 
-            double totalPrice = calculateTotalPrice(productIds);
+            System.out.println("\u001B[35m Processing order: \u001B[0m " + orderId +
+                    " with products: " + productCounts);
+
+            boolean allInStock = checkStock(productCounts);
+            double totalPrice = calculateTotalPrice(productCounts);
+
             String response = orderId + ":" + allInStock + ":" + totalPrice;
             channel.basicPublish("", STOCK_CONFIRMATION_QUEUE, null,
                     response.getBytes(StandardCharsets.UTF_8));
 
-            // If in stock, decrease stock count
             if (allInStock) {
-                decreaseStock(productIds);
+                dishService.decreaseStock(productCounts);
+                System.out.println("\u001B[35m Stock decreased for order ID: \u001B[0m " + orderId);
+            } else {
+                System.out.println("\u001B[31m Insufficient stock for order ID: \u001B[0m " + orderId);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private boolean checkStock(List<Long> productIds) {
-        for (Long productId : productIds) {
+    private boolean checkStock(Map<Long, Long> productCounts) {
+        for (Map.Entry<Long, Long> entry : productCounts.entrySet()) {
+            Long productId = entry.getKey();
+            Long quantity = entry.getValue();
+
+            System.out.println("\u001B[35m Checking stock for product ID: \u001B[0m " +
+                    productId + " (quantity needed: " + quantity + ")");
+
             Dish dish = entityManager.find(Dish.class, productId);
-            if (dish == null || dish.getStockCount() <= 0) {
+            if (dish == null || dish.getStockCount() < quantity) {
+                System.out.println("\u001B[31m Product " + productId +
+                        " insufficient stock: available=" +
+                        (dish != null ? dish.getStockCount() : 0) +
+                        ", needed=" + quantity + "\u001B[0m");
                 return false;
             }
         }
         return true;
     }
 
-    private void decreaseStock(List<Long> productIds) {
-        for (Long productId : productIds) {
-            Dish dish = entityManager.find(Dish.class, productId);
-            if (dish != null) {
-                dish.setStockCount(dish.getStockCount() - 1);
-                entityManager.merge(dish);
-            }
-        }
-    }
-    private double calculateTotalPrice(List<Long> productIds) {
+
+    private double calculateTotalPrice(Map<Long, Long> productCounts) {
         double totalPrice = 0.0;
-        for (Long productId : productIds) {
+        for (Map.Entry<Long, Long> entry : productCounts.entrySet()) {
+            Long productId = entry.getKey();
+            Long quantity = entry.getValue();
+
             Dish dish = entityManager.find(Dish.class, productId);
             if (dish != null) {
-                totalPrice += dish.getPrice();
+                double itemTotal = dish.getPrice() * quantity;
+                totalPrice += itemTotal;
+                System.out.println("\u001B[36m Product " + productId +
+                        ": $" + dish.getPrice() + " x " + quantity +
+                        " = $" + itemTotal + "\u001B[0m");
             }
         }
+        System.out.println("\u001B[36m Total price: $" + totalPrice + "\u001B[0m");
         return totalPrice;
     }
+
+
 
     @PreDestroy
     public void cleanup() {
