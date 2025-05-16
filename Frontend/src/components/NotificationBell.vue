@@ -30,28 +30,71 @@
             <div class="spinner-border text-primary spinner-border-sm" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-          </div>
-          
-          <template v-else-if="notifications.length > 0">
-            <div v-for="notification in sortedNotifications"
-                 :key="notification.id"
-                 class="notification-item"
-                 :class="{ 
-                   'unread': !notification.read,
-                   [getNotificationClass(notification.type)]: true
-                 }"
-                 @click="markAsRead(notification)">
-              <div class="notification-icon">
-                <i :class="getNotificationIcon(notification.type)"></i>
-              </div>
-              <div class="notification-content">
-                <div class="notification-title">{{ notification.title }}</div>
-                <div class="notification-message">{{ notification.message }}</div>
-                <div class="notification-time">
-                  {{ formatTime(notification.timestamp || notification.time) }}
+          </div>          <template v-else-if="notifications.length > 0">
+            <template v-if="userType === 'admin'">
+              <!-- Group notifications by service for admin -->
+              <div v-for="service in groupedServices" :key="service" class="notification-group">
+                <div class="notification-group-header" v-if="getServiceNotifications(service).length">
+                  {{ service }}
+                  <span class="badge bg-secondary ms-2">{{ getServiceNotifications(service).length }}</span>
+                </div>
+                <div v-for="notification in getServiceNotifications(service)"
+                     :key="notification.id"
+                     class="notification-item"
+                     :class="{ 
+                       'unread': !notification.read,
+                       [getNotificationClass(notification.type)]: true
+                     }"
+                     @click="markAsRead(notification)">
+                  <div class="notification-icon">
+                    <i :class="getNotificationIcon(notification.type)"></i>
+                  </div>
+                  <div class="notification-content">
+                    <div class="notification-title d-flex align-items-center">
+                      <span>{{ notification.title }}</span>
+                      <span v-if="notification.severity" 
+                            :class="getSeverityClass(notification.severity)"
+                            class="badge ms-2">
+                        {{ notification.severity }}
+                      </span>
+                    </div>
+                    <div class="notification-message">{{ notification.message }}</div>
+                    <div class="notification-time">
+                      {{ formatTime(notification.timestamp || notification.time) }}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
+            <template v-else>
+              <!-- Regular notification display for non-admin users -->
+              <div v-for="notification in sortedNotifications"
+                   :key="notification.id"
+                   class="notification-item"
+                   :class="{ 
+                     'unread': !notification.read,
+                     [getNotificationClass(notification.type)]: true
+                   }"
+                   @click="markAsRead(notification)">
+                <div class="notification-icon">
+                  <i :class="getNotificationIcon(notification.type)"></i>
+                </div>
+                <div class="notification-content">
+                  <div class="notification-title d-flex align-items-center">
+                    <span>{{ notification.title }}</span>
+                    <span v-if="notification.severity" 
+                          :class="getSeverityClass(notification.severity)"
+                          class="badge ms-2">
+                      {{ notification.severity }}
+                    </span>
+                  </div>
+                  <div class="notification-message">{{ notification.message }}</div>
+                  <div class="notification-time">
+                    {{ formatTime(notification.timestamp || notification.time) }}
+                  </div>
+                </div>
+              </div>
+            </template>
           </template>
           
           <div v-else class="no-notifications">
@@ -96,11 +139,26 @@ export default {
         // Sort by read status first (unread first)
         if (a.read !== b.read) return a.read ? 1 : -1;
         
+        // For admin users, sort by severity next
+        if (this.userType === 'admin') {
+          const severityOrder = { Error: 0, Warning: 1, Info: 2 };
+          if (a.severity && b.severity && a.severity !== b.severity) {
+            return severityOrder[a.severity] - severityOrder[b.severity];
+          }
+        }
+        
         // Then sort by timestamp
         const timeA = new Date(a.timestamp || a.time);
         const timeB = new Date(b.timestamp || b.time);
         return timeB - timeA;
       });
+    },
+
+    groupedServices() {
+      if (!this.userType === 'admin') return [];
+      return [...new Set(this.notifications
+        .filter(n => n.serviceName)
+        .map(n => n.serviceName))];
     }
   },
 
@@ -365,24 +423,74 @@ export default {
       return classes[type] || '';
     },
 
+    getSeverityClass(severity) {
+      const classes = {
+        Error: 'bg-danger',
+        Warning: 'bg-warning text-dark',
+        Info: 'bg-info text-dark'
+      };
+      return classes[severity] || 'bg-secondary';
+    },
+
     showBrowserNotification(notification) {
       if (!('Notification' in window)) return;
       
-      if (Notification.permission === 'granted') {
-        new Notification(notification.title, {
-          body: notification.message,
-          icon: '/favicon.ico'
-        });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification(notification.title, {
-              body: notification.message,
-              icon: '/favicon.ico'
-            });
+      const showNotif = (permission) => {
+        if (permission === 'granted') {
+          // Get the appropriate icon based on notification type
+          let icon = '/favicon.ico';
+          if (notification.type === 'stock') {
+            icon = '/icons/stock-alert.png'; // You'll need to add this icon
+          } else if (notification.type === 'error') {
+            icon = '/icons/error.png';
           }
-        });
+
+          // Customize notification options based on type
+          const options = {
+            body: notification.message,
+            icon: icon,
+            tag: notification.type, // Group similar notifications
+            renotify: true, // Always notify even if there's an existing notification
+            requireInteraction: notification.type === 'stock', // Keep stock notifications until user interacts
+            vibrate: notification.type === 'stock' ? [200, 100, 200] : undefined, // Vibrate for stock alerts
+          };
+
+          // Add action buttons for stock notifications
+          if (notification.type === 'stock') {
+            options.actions = [
+              {
+                action: 'view',
+                title: 'View Stock',
+              },
+              {
+                action: 'dismiss',
+                title: 'Dismiss',
+              }
+            ];
+          }
+
+          const notif = new Notification(notification.title, options);
+
+          // Handle notification clicks
+          notif.onclick = () => {
+            window.focus();
+            this.showNotifications = true;
+            this.markAsRead(notification);
+          };
+        }
+      };
+
+      if (Notification.permission === 'granted') {
+        showNotif('granted');
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission()
+          .then(showNotif)
+          .catch(err => console.error('Error requesting notification permission:', err));
       }
+    },
+
+    getServiceNotifications(service) {
+      return this.sortedNotifications.filter(n => n.serviceName === service);
     }
   }
 };
@@ -530,5 +638,30 @@ export default {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+/* Notification group styles */
+.notification-group {
+  border-bottom: 1px solid #eee;
+}
+
+.notification-group-header {
+  padding: 8px 16px;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+}
+
+.notification-group .notification-item {
+  padding-left: 24px;
+  border-bottom: none;
+  border-left: 3px solid transparent;
+}
+
+.notification-group .notification-item.unread {
+  border-left-color: #0d6efd;
 }
 </style>

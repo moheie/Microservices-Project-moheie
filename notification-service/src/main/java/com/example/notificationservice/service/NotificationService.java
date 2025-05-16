@@ -2,6 +2,8 @@ package com.example.notificationservice.service;
 
 import com.example.notificationservice.model.Notification;
 import com.example.notificationservice.repository.NotificationRepository;
+
+import org.aspectj.weaver.ast.Not;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -22,10 +24,7 @@ public class NotificationService {
         this.messagingTemplate = messagingTemplate;
         this.notificationRepository = notificationRepository;
     }
-    
-    /**
-     * Send a notification to a specific user by ID
-     */
+
     public void sendToUser(Notification notification, Long userId) {
         notification.setUserId(userId);
         notificationRepository.save(notification);
@@ -35,64 +34,73 @@ public class NotificationService {
             notification
         );
     }
-    
-    /**
-     * Get all notifications for a specific user ID
-     */
+
     public List<Notification> getNotificationsByUserId(Long userId) {
         return notificationRepository.findByUserId(userId);
     }
-    
-    /**
-     * Get unread notifications for a specific user ID
-     */
+
     public List<Notification> getUnreadNotificationsByUserId(Long userId) {
         return notificationRepository.findByUserIdAndReadFalse(userId);
     }
-    
-    /**
-     * Mark a notification as read
-     */
+
     public void markAsRead(String notificationId) {
         notificationRepository.findById(notificationId).ifPresent(notification -> {
             notification.setRead(true);
             notificationRepository.save(notification);
         });
     }
-    
-    /**
-     * Mark all notifications for a specific user ID as read
-     */
+
     public void markAllAsReadForUser(Long userId) {
         List<Notification> notifications = notificationRepository.findByUserIdAndReadFalse(userId);
         notifications.forEach(notification -> notification.setRead(true));
         notificationRepository.saveAll(notifications);
     }
     
-    /**
-     * Create an error notification
-     */
-    public Notification createErrorNotification(String source, String errorMessage, Long userId) {
-        return new Notification("error", source + " Error", errorMessage, userId);
-    }
-    
-    /**
-     * Create a payment failure notification
-     */
+
     public Notification createPaymentFailedNotification(String orderId, String reason, Long userId) {
-        return new Notification("payment", 
+        return new Notification(
+            "payment",
             "Payment Failed - Order " + orderId,
-            "Payment failed: " + reason,
-            userId);
+            reason,
+            userId
+        );
     }
     
-    /**
-     * Create an order status notification
-     */
+
+    public void sendLogMessage(String service, String severity, String message, Long userId) {
+        if (severity.equals("Error")) {
+            Notification notification = new Notification(
+                "error",
+                service + " Error",
+                message,
+                userId
+            );
+            sendToUser(notification, userId);
+        }
+        // Only Error severity notifications are sent to users
+        // Other severities are just logged in the system
+    }
+
+    public Notification createStockAlertNotification(String productName, int quantity, Long userId) {
+        return new Notification(
+            "stock",
+            "Low Stock Alert",
+            "Product " + productName + " is running low (quantity: " + quantity + ")",
+            userId
+        );
+    }
+
     public Notification createOrderStatusNotification(String orderId, String status, Long userId) {
-        return new Notification("order",
+        return new Notification(
+            "order",
             "Order " + orderId + " Status Update",
             "Your order status has been updated to: " + status,
             userId);
+    }
+    
+    public void createNotification(Notification notification) {
+        notificationRepository.save(notification);
+        // Send to all users (or specific users if needed)
+        messagingTemplate.convertAndSend("/topic/notifications", notification);
     }
 }

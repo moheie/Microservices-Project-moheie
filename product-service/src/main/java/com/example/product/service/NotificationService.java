@@ -13,17 +13,10 @@ public class NotificationService {
     @Inject
     private RabbitMQConfig rabbitMQConfig;
     
-    /**
-     * Send a stock check notification when stock is low
-     * 
-     * @param productId The product ID
-     * @param productName The name of the product
-     * @param quantity The current stock quantity
-     * @param sellerCompanyName The name of the seller's company
-     */
-    public void sendStockNotification(Long productId, String productName, int quantity, String sellerCompanyName) {
+
+    public void sendStockNotification(Long productId, String productName, int quantity, String sellerCompanyName, Long sellerId) {
         try {
-            String message = productName + ":" + quantity + ":" + sellerCompanyName;
+            String message = productName + ":" + quantity + ":" + sellerCompanyName + ":" + sellerId;
             rabbitMQConfig.getChannel().basicPublish(
                 "",  // Default exchange
                 RabbitMQConfig.SELLER_STOCK_CHECK_QUEUE,  // Queue name
@@ -37,12 +30,7 @@ public class NotificationService {
         }
     }
     
-    /**
-     * Send a log message
-     * @param service The service name
-     * @param severity The severity level (Info, Warning, Error)
-     * @param message The log message
-     */
+
     public void sendLogMessage(String service, String severity, String message) {
         try {
             String routingKey = service + "_" + severity;

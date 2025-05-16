@@ -11,6 +11,8 @@ public class StockCheckListener {
     
     private final NotificationService notificationService;
     
+
+    
     @Autowired
     public StockCheckListener(NotificationService notificationService) {
         this.notificationService = notificationService;
@@ -19,33 +21,36 @@ public class StockCheckListener {
     @RabbitListener(queues = "seller-stock-check")
     public void handleStockCheck(String message) {
         System.out.println("Stock check notification: " + message);
-        
-        // Parse the message - expecting format: "productName:quantity:sellerCompanyName"
+
+        // Parse the message - expecting format: "productName:quantity:sellerCompanyName[:sellerId]"
         String[] parts = message.split(":");
         if (parts.length >= 3) {
-            try {
+            try {                
                 String productName = parts[0];
                 int quantity = Integer.parseInt(parts[1]);
                 String sellerCompanyName = parts[2];
+                Long sellerId = Long.parseLong(parts[3]);                // Create stock alert notification
+                Notification notification = notificationService.createStockAlertNotification(
+                    productName, 
+                    quantity,
+                    sellerId
+                );
                 
-                // For now, we'll use the company name as the seller ID until proper mapping is implemented
-                // In a real system, you would have a service to look up the seller ID by company name
-                Long sellerId = (long) sellerCompanyName.hashCode(); // Temporary solution
-                
-                // Notify if stock is low (threshold could be configurable)
-                if (quantity < 10) {
-                    Notification notification = new Notification(
-                        "stock",
-                        "Low Stock Alert",
-                        "Product " + productName + " is running low (quantity: " + quantity + ")",
+                // Send directly to the seller
+                notificationService.sendToUser(notification, sellerId);
+
+                // If stock is critically low (less than 5), send to admin
+                if (quantity < 5) {
+                    // Log system message for admin
+                    notificationService.sendLogMessage(
+                        "Stock",
+                        "Error",
+                        String.format("CRITICAL: Product '%s' from %s has very low stock: %d units remaining", 
+                            productName, sellerCompanyName, quantity),
                         sellerId
                     );
-                    notificationService.sendToUser(notification, sellerId);
-                    
-                    // Also log this as a warning
-                    System.out.println("Sent low stock notification to seller: " + sellerCompanyName + 
-                        " for product: " + productName + " (quantity: " + quantity + ")");
                 }
+                
             } catch (NumberFormatException e) {
                 System.err.println("Error parsing stock check message: " + e.getMessage());
             }

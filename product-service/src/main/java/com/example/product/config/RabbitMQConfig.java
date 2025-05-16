@@ -52,15 +52,16 @@ public class RabbitMQConfig {
             connection = factory.newConnection();
             channel = connection.createChannel();
 
-            // Ensure exchanges exist
-            channel.exchangeDeclare(ADMIN_LOG_EXCHANGE, "topic", true);            
+            // Declare exchanges
+            channel.exchangeDeclare(ADMIN_LOG_EXCHANGE, "topic", true);
+
+            // Declare queues
             channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, false, false, false, null);
             channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, false, false, false, null);
             channel.queueDeclare(SELLER_STOCK_CHECK_QUEUE, false, false, false, null);
-            channel.queueDeclare("admin-log", true, false, false, null);
-            
-            // Bind the admin logs queue to the exchange
-            channel.queueBind("admin-log", ADMIN_LOG_EXCHANGE, "*_Error");
+
+            // Bind queues to exchanges
+            channel.queueBind(SELLER_STOCK_CHECK_QUEUE, ADMIN_LOG_EXCHANGE, "Stock_*");
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -69,7 +70,6 @@ public class RabbitMQConfig {
 
             channel.basicConsume(ORDER_STOCK_CHECK_QUEUE, true, deliverCallback, consumerTag -> {});
             
-
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
         }

@@ -57,15 +57,15 @@ public class DishController {
             }
 
             // add 10 dishs statically
-            dishService.createDish("fish", "fish", 10.0, companyName, 10);
-            dishService.createDish("chicken", "chicken", 10.0, companyName, 10);
-            dishService.createDish("beef", "beef", 10.0, companyName, 10);
-            dishService.createDish("pork", "pork", 10.0, companyName, 10);
-            dishService.createDish("vegetable", "vegetable", 10.0, companyName, 10);
-            dishService.createDish("fruit", "fruit", 10.0, companyName, 3);
-            dishService.createDish("salad", "salad", 10.0, companyName, 10);
-            dishService.createDish("soup", "soup", 10.0, companyName, 10);
-            return dishService.createDish(name, description, price, companyName, stockCount);
+            dishService.createDish("fish", "fish", 10.0, companyName, 10, token);
+            dishService.createDish("chicken", "chicken", 10.0, companyName, 10, token);
+            dishService.createDish("beef", "beef", 10.0, companyName, 10, token);
+            dishService.createDish("pork", "pork", 10.0, companyName, 10, token);
+            dishService.createDish("vegetable", "vegetable", 10.0, companyName, 10, token);
+            dishService.createDish("fruit", "fruit", 10.0, companyName, 3, token);
+            dishService.createDish("salad", "salad", 10.0, companyName, 10, token);
+            dishService.createDish("soup", "soup", 10.0, companyName, 10, token);
+            return dishService.createDish(name, description, price, companyName, stockCount, token);
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -146,7 +146,7 @@ public class DishController {
             }
             String companyName = Jwt.getCompany(token);
 
-            return dishService.updateDish(dishId, name, description, price, stockCount, companyName);
+            return dishService.updateDish(dishId, name, description, price, stockCount, companyName, token);
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Error updating dish: " + e.getMessage()).build();

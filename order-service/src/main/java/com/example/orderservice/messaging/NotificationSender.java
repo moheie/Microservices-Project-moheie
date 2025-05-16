@@ -17,13 +17,7 @@ public class NotificationSender {
     @Inject
     private RabbitMQConfig rabbitMQConfig;
     
-    /**
-     * Send an order confirmation notification
-     * 
-     * @param orderId The order ID
-     * @param status The order status (e.g., "confirmed", "processing", "delivered")
-     * @param userId The user ID of the customer
-     */
+
     public void sendOrderConfirmation(Long orderId, String status, Long userId) {
         try {
             String message = orderId + ":" + status + ":" + userId;
@@ -40,13 +34,7 @@ public class NotificationSender {
             System.err.println("Failed to send order confirmation: " + e.getMessage());
         }
     }
-    
-    /**
-     * Send a payment failed notification
-     * 
-     * @param orderId The order ID
-     * @param reason The reason for payment failure
-     */
+
     public void sendPaymentFailure(Long orderId, String reason) {
         try {
             String message = orderId + ":" + reason;
@@ -63,14 +51,7 @@ public class NotificationSender {
             System.err.println("Failed to send payment failure notification: " + e.getMessage());
         }
     }
-    
-    /**
-     * Send a log message
-     * 
-     * @param service The service name
-     * @param severity The severity level (Info, Warning, Error)
-     * @param message The log message
-     */
+
     public void sendLogMessage(String service, String severity, String message) {
         try {
             String routingKey = service + "_" + severity;

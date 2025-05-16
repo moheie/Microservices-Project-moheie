@@ -192,22 +192,14 @@ public class OrderService {
 
         if (inStock && orderTotal >= MINIMUM_CHARGE) {
             order.setStatus(OrderStatus.BEING_DELIVERED);
-            // Proceed with payment (mock implementation)
-            //sendOrderConfirmation(order, true);
-            // after 10 seconds, make order delivered
+
             Thread.sleep(10000);
-             order.setStatus(OrderStatus.DELIVERED);
+            order.setStatus(OrderStatus.DELIVERED);
 
             // Send notifications
             notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
         } else {
             order.setStatus(OrderStatus.CANCELED);
-            // Rollback actions (mock implementation)
-            //sendOrderConfirmation(order, false);
-
-//            String reason = !inStock ? "out of stock" :
-//                    ("minimum charge not met - order total: $" + orderTotal +
-//                            ", minimum required: $" + MINIMUM_CHARGE);
 
             // Send notifications
             if (!inStock) {
