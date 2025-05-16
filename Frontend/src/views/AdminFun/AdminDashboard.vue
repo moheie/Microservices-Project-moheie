@@ -147,9 +147,6 @@ export default {
     // Initialize Bootstrap modal
     this.modal = new Modal(this.$refs.logModal);
 
-    // Send test notifications after a short delay
-    setTimeout(() => this.sendTestNotifications(), 3000);
-
     // Subscribe to notifications from the store
     this.$store.subscribe((mutation) => {
       if (mutation.type === 'addNotification') {
@@ -160,7 +157,7 @@ export default {
           this.errorLogs.unshift(notification);
         }
       }
-    });    // Initialize WebSocket connections for admin notifications
+    });// Initialize WebSocket connections for admin notifications
     this.initializeWebSocketConnections();
   },
   beforeUnmount() {
@@ -217,8 +214,7 @@ export default {
       }
       // More than a day
       return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    },
-    async initializeWebSocketConnections() {
+    },    async initializeWebSocketConnections() {
       try {
         // Get auth token from store or local storage
         const token = localStorage.getItem('token');
@@ -227,63 +223,145 @@ export default {
         };
 
         // Initialize WebSocket connection
-        await WebSocketService.connect('admin', headers);
-
-        // Subscribe to payment failures
-        WebSocketService.subscribe('PAYMENT_FAILURES', (notification) => {
-          if (notification.type === 'PAYMENT_FAILURE') {
-            this.paymentFailures.unshift(notification);
-            // Optionally show a toast notification
-            this.$toast.error(`Payment failure: ${notification.message}`);
-          }
+        await WebSocketService.connect('admin', headers);        // Subscribe to all notification types with a unified handler
+        WebSocketService.subscribe('PAYMENT_FAILURES', this.handleNotification);
+        WebSocketService.subscribe('error', this.handleNotification);
+        WebSocketService.subscribe('system', this.handleNotification);
+        WebSocketService.subscribe('order', this.handleNotification);
+        WebSocketService.subscribe('stock', this.handleNotification);
+        WebSocketService.subscribe('admin', this.handleNotification);
+        
+        // Debug: Add a wildcard subscription to log all notifications
+        WebSocketService.subscribe('*', (notification) => {
+          console.log('Wildcard notification received:', notification);
         });
 
-        // Subscribe to system error logs
-        WebSocketService.subscribe('SYSTEM_ERRORS', (notification) => {
-          if (notification.type === 'ERROR_LOG') {
-            this.errorLogs.unshift(notification);
-            // Show toast based on severity
-            const severity = notification.severity.toLowerCase();
-            this.$toast[severity](`${notification.serviceName}: ${notification.message}`);
-          }
-        });
       } catch (error) {
         console.error('Failed to initialize WebSocket connections:', error);
         this.$toast.error('Failed to connect to notification service');
       }
     },
-    
-    cleanupWebSocketConnections() {
-      WebSocketService.unsubscribe('PAYMENT_FAILURES');
-      WebSocketService.unsubscribe('SYSTEM_ERRORS');
+      cleanupWebSocketConnections() {
+      WebSocketService.unsubscribe('PAYMENT_FAILURES', this.handleNotification);
+      WebSocketService.unsubscribe('error', this.handleNotification);
+      WebSocketService.unsubscribe('system', this.handleNotification);
+      WebSocketService.unsubscribe('order', this.handleNotification);
+      WebSocketService.unsubscribe('stock', this.handleNotification);
+      WebSocketService.unsubscribe('admin', this.handleNotification);
+      WebSocketService.unsubscribe('*');
     },
-    async sendTestNotifications() {
-      try {
-        const token = localStorage.getItem('token');
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        };
-
-        // Test payment failure notification
-        await fetch('http://localhost:8082/order-service/test/payment-failure?orderId=999&message=TestPaymentFailure', {
-          method: 'POST',
-          headers
-        });
-
-        // Wait a bit before sending the next notification
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Test system error notification
-        await fetch('http://localhost:8083/product-service/test/system-error?serviceName=ProductService&severity=Error&message=TestSystemError', {
-          method: 'POST',
-          headers
-        });
-
-      } catch (error) {
-        console.error('Failed to send test notifications:', error);
+      handleNotification(notification) {
+      console.log('AdminDashboard handling notification:', notification);
+      
+      // Skip duplicate notifications
+      const existingPaymentFailure = this.paymentFailures.find(n => n.id === notification.id);
+      const existingErrorLog = this.errorLogs.find(n => n.id === notification.id);
+      
+      if (existingPaymentFailure || existingErrorLog) {
+        console.log('Skipping duplicate notification', notification.id);
+        return;
       }
-    }
+      
+      // Ensure the notification has an ID and timestamp
+      const processedNotification = {
+        ...notification,
+        id: notification.id || `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: notification.timestamp || new Date().toISOString()
+      };
+      
+      // Parse RabbitMQ admin log messages (e.g., "Order_Error: Some message")
+      if (notification.message && notification.message.includes(':')) {
+        try {
+          const parts = notification.message.split(':', 2);
+          if (parts.length >= 2) {
+            const serviceInfo = parts[0];
+            const logMessage = parts[1].trim();
+            
+            // Extract service info if available (e.g., "Order_Error")
+            if (serviceInfo.includes('_')) {
+              const serviceInfoParts = serviceInfo.split('_');
+              if (serviceInfoParts.length >= 2) {
+                processedNotification.serviceName = processedNotification.serviceName || serviceInfoParts[0];
+                processedNotification.severity = processedNotification.severity || serviceInfoParts[1];
+                processedNotification.message = logMessage;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing notification message:', error);
+        }
+      }
+      
+      // Payment notifications
+      if (notification.type === 'payment' || 
+          notification.type === 'PAYMENT_FAILURES' ||
+          (notification.title && notification.title.toLowerCase().includes('payment')) ||
+          processedNotification.message?.includes('payment')) {
+        
+        this.paymentFailures.unshift({
+          ...processedNotification, 
+          title: processedNotification.title || 'Payment Notification',
+          message: processedNotification.message || 'Payment status update'
+        });
+        this.$toast.error(`Payment notification: ${processedNotification.message || processedNotification.title}`);
+        return;
+      }
+      
+      // Error notifications from Order service
+      if ((processedNotification.serviceName === 'Order' && processedNotification.severity === 'Error') ||
+          notification.type === 'order') {
+        
+        this.errorLogs.unshift({
+          ...processedNotification,
+          serviceName: 'Order',
+          severity: processedNotification.severity || 'Error'
+        });
+        this.$toast.error(`Order service error: ${processedNotification.message}`);
+        return;
+      }
+      
+      // Error notifications from Stock service
+      if ((processedNotification.serviceName === 'Stock' && processedNotification.severity === 'Error') ||
+          notification.type === 'stock') {
+        
+        this.errorLogs.unshift({
+          ...processedNotification,
+          serviceName: 'Stock',
+          severity: processedNotification.severity || 'Error'
+        });
+        this.$toast.warning(`Stock service alert: ${processedNotification.message}`);
+        return;
+      }
+      
+      // General error notifications
+      if (notification.type === 'error' || 
+          notification.type === 'system' ||
+          notification.severity === 'Error') {
+        
+        this.errorLogs.unshift({
+          ...processedNotification,
+          serviceName: processedNotification.serviceName || 'System',
+          severity: processedNotification.severity || 'Error'
+        });
+        this.$toast.error(`${processedNotification.serviceName || 'System'} error: ${processedNotification.message || processedNotification.title}`);
+        return;
+      }
+      
+      // Handle admin-specific notifications
+      if (notification.type === 'admin') {
+        // Determine if it's an error or payment notification based on content
+        if (processedNotification.message?.toLowerCase().includes('payment') || 
+            processedNotification.title?.toLowerCase().includes('payment')) {
+          this.paymentFailures.unshift(processedNotification);
+        } else {
+          this.errorLogs.unshift(processedNotification);
+        }
+        return;
+      }
+      
+      // For other notifications that don't match specific criteria, log them
+      console.log('Unclassified notification:', processedNotification);
+    },
   }
 };
 </script>

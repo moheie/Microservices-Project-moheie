@@ -96,20 +96,66 @@ class WebSocketService {
     }
   }
 
-  
   notifySubscribers(notification) {
+    console.log('Processing notification:', notification);
+    
     // Always notify universal subscribers
     if (this.subscribers.has('*')) {
+      console.log('Notifying wildcard subscribers');
       this.subscribers.get('*').forEach(callback => callback(notification));
     }
 
     // Notify type-specific subscribers
     if (notification.type && this.subscribers.has(notification.type)) {
+      console.log(`Notifying subscribers for type: ${notification.type}`);
       this.subscribers.get(notification.type).forEach(callback => callback(notification));
+    }
+
+    // Support notifications coming from the Admin log exchange through routing keys
+    if (notification.message && notification.message.includes(':')) {
+      const parts = notification.message.split(':', 2);
+      if (parts.length >= 2) {
+        const serviceInfo = parts[0];
+        if (serviceInfo.includes('_')) {
+          const serviceInfoParts = serviceInfo.split('_');
+          if (serviceInfoParts.length >= 2) {
+            const serviceName = serviceInfoParts[0].toLowerCase();
+            
+            // Add service name to notification object for downstream processing
+            notification.serviceName = serviceInfoParts[0];
+            notification.severity = serviceInfoParts[1];
+            
+            console.log(`Detected service: ${serviceName} with severity: ${notification.severity}`);
+            
+            if (this.subscribers.has(serviceName)) {
+              console.log(`Notifying subscribers for service: ${serviceName}`);
+              this.subscribers.get(serviceName).forEach(callback => callback(notification));
+            }
+          }
+        }
+      }
+    }
+
+    // Support notifications coming from the Order or Stock topic exchange
+    if (notification.serviceName) {
+      const serviceName = notification.serviceName.toLowerCase();
+      
+      // For Order logs
+      if (serviceName === 'order' && this.subscribers.has('order')) {
+        console.log('Notifying order subscribers');
+        this.subscribers.get('order').forEach(callback => callback(notification));
+      }
+      
+      // For Stock logs
+      if (serviceName === 'stock' && this.subscribers.has('stock')) {
+        console.log('Notifying stock subscribers');
+        this.subscribers.get('stock').forEach(callback => callback(notification));
+      }
     }
 
     // Notify user type specific subscribers
     if (notification.userType && this.subscribers.has(notification.userType)) {
+      console.log(`Notifying subscribers for userType: ${notification.userType}`);
       this.subscribers.get(notification.userType).forEach(callback => callback(notification));
     }
   }

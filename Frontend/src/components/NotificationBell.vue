@@ -203,14 +203,17 @@ export default {
         this.wsConnected = true;
         this.setupSubscriptions();
       }
-    },
-
+    },    
     setupSubscriptions() {
       // Subscribe to general notifications
       WebSocketService.subscribe('*', this.handleNotification);
       
       // Subscribe to user type specific notifications
       WebSocketService.subscribe(this.userType, this.handleNotification);
+      
+      // Subscribe to our RabbitMQ topic exchange notifications
+      WebSocketService.subscribe('order', this.handleNotification);
+      WebSocketService.subscribe('stock', this.handleNotification);
       
       // Special subscriptions for different user types
       if (this.userType === 'admin') {
@@ -223,12 +226,14 @@ export default {
         WebSocketService.subscribe('order', this.handleNotification);
         WebSocketService.subscribe('payment', this.handleNotification);
       }
-    },
-
-    disconnectWebSocket() {
+    },    disconnectWebSocket() {
       if (this.wsConnected) {
         WebSocketService.unsubscribe('*', this.handleNotification);
         WebSocketService.unsubscribe(this.userType, this.handleNotification);
+        
+        // Unsubscribe from RabbitMQ topic exchange notifications
+        WebSocketService.unsubscribe('order', this.handleNotification);
+        WebSocketService.unsubscribe('stock', this.handleNotification);
         
         if (this.userType === 'admin') {
           WebSocketService.unsubscribe('error', this.handleNotification);
@@ -241,20 +246,57 @@ export default {
           WebSocketService.unsubscribe('payment', this.handleNotification);
         }
       }
-    },
-
-    handleNotification(notification) {
-      console.log('Received notification:', notification);
+    },    handleNotification(notification) {
+      console.log('NotificationBell received notification:', notification);
+      
+      // For notifications coming from RabbitMQ topic exchange, they might need parsing
+      if (notification.serviceName && notification.message && notification.message.includes(':')) {
+        try {
+          const parts = notification.message.split(':', 2);
+          if (parts.length >= 2) {
+            const logMessage = parts[1];
+            
+            // Create a cleaner notification object
+            const cleanNotification = {
+              ...notification,
+              type: notification.serviceName.toLowerCase(),
+              title: `${notification.serviceName} ${notification.severity || 'Notification'}`,
+              message: logMessage.trim(),
+              severity: notification.severity || 'Info',
+              read: false,
+              id: notification.id || `${notification.serviceName.toLowerCase()}_${Date.now()}`,
+              timestamp: notification.timestamp || new Date().toISOString()
+            };
+            
+            this.addNotification(cleanNotification);
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing notification:', error);
+        }
+      }
+      
+      // Standard notification handling
       this.addNotification(notification);
     },
 
     addNotification(notification) {
+      // Skip duplicates (check by ID if available)
+      if (notification.id && this.notifications.some(n => n.id === notification.id)) {
+        console.log('Skipping duplicate notification:', notification.id);
+        return;
+      }
+      
       // Add timestamp if not present
       const notificationWithTime = {
         ...notification,
         timestamp: notification.timestamp || new Date().toISOString(),
-        read: false
+        read: false,
+        // Ensure we have an ID for the notification
+        id: notification.id || `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       };
+      
+      console.log('Adding notification to bell:', notificationWithTime);
       
       // Add to start of array and update unread count
       this.notifications.unshift(notificationWithTime);

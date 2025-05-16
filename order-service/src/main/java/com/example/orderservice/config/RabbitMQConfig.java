@@ -37,16 +37,19 @@ public class RabbitMQConfig {
 
             // Declare exchanges
             channel.exchangeDeclare(PAYMENTS_EXCHANGE, "direct", true);
-            channel.exchangeDeclare(ADMIN_LOG_EXCHANGE, "topic", true);
-
+            channel.exchangeDeclare(ADMIN_LOG_EXCHANGE, "topic", true);            
+            
             // Declare queues
             channel.queueDeclare(ORDER_STOCK_CHECK_QUEUE, false, false, false, null);
             channel.queueDeclare(STOCK_CONFIRMATION_QUEUE, false, false, false, null);
             channel.queueDeclare(USER_ORDER_CONFIRMATION_QUEUE, false, false, false, null);
             channel.queueDeclare(PAYMENT_FAILED_QUEUE, false, false, false, null);
-
+            
             // Bind payment failure queue to exchange
             channel.queueBind(PAYMENT_FAILED_QUEUE, PAYMENTS_EXCHANGE, "PaymentFailed");
+            
+            // Bind admin log queue to exchange with routing pattern for errors
+            channel.queueBind(USER_ORDER_CONFIRMATION_QUEUE, ADMIN_LOG_EXCHANGE, "Order_*");
 
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);

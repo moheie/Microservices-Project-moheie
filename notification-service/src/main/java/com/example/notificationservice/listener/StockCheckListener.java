@@ -49,6 +49,14 @@ public class StockCheckListener {
                             productName, sellerCompanyName, quantity),
                         sellerId
                     );
+
+                    // Create admin notification
+                    Notification adminNotification = notificationService.createStockAlertNotification(
+                        productName,
+                        quantity,
+                        1L // Assuming 1L is the admin user ID
+                    );
+                    notificationService.sendToUser(adminNotification, 1L);
                 }
                 
             } catch (NumberFormatException e) {

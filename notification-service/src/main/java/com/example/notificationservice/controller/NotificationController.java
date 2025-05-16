@@ -22,6 +22,16 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
+    @GetMapping("/sendLog")
+    @ResponseBody
+    public String sendLogMessage(String service, String severity, String message) {
+        try {
+            notificationService.sendLogMessage(service, severity, message, 1L);
+            return "Log message sent successfully!";
+        } catch (Exception e) {
+            return "Failed to send log message: " + e.getMessage();
+        }
+    }
 
     @GetMapping("/health")
     @ResponseBody

@@ -10,7 +10,6 @@ public class RabbitMQConfig {
     public static final String SELLER_STOCK_CHECK_QUEUE = "seller-stock-check";
     public static final String USER_ORDER_CONFIRMATION_QUEUE = "user-order-confirmation";    
     public static final String PAYMENT_FAILED_QUEUE = "payment-failed";
-    public static final String LOG_QUEUE = "admin-log";
     
     // Exchange names
     public static final String PAYMENTS_EXCHANGE = "payments-exchange";
@@ -31,13 +30,6 @@ public class RabbitMQConfig {
         return QueueBuilder.nonDurable(SELLER_STOCK_CHECK_QUEUE).build();
     }
     
-    // Admin log queue for all error logs
-    @Bean
-    public Queue adminLogQueue() {
-        return QueueBuilder.durable(LOG_QUEUE).build();
-    }
-    
-    // Direct exchange for payment events
     @Bean
     public DirectExchange paymentsExchange() {
         return ExchangeBuilder.directExchange(PAYMENTS_EXCHANGE)
@@ -45,7 +37,6 @@ public class RabbitMQConfig {
                 .build();
     }
     
-    // Topic exchange for logs with different routing keys based on severity
     @Bean
     public TopicExchange logExchange() {
         return ExchangeBuilder.topicExchange(ADMIN_LOG_EXCHANGE)
@@ -53,20 +44,25 @@ public class RabbitMQConfig {
                 .build();
     }
     
-    // Bind payment-failed queue to the payments exchange with PaymentFailed routing key
     @Bean
     public Binding paymentFailedBinding() {
         return BindingBuilder.bind(paymentFailedQueue())
                 .to(paymentsExchange())
                 .with("PaymentFailed");
+    }   
+
+    @Bean
+    public Binding orderConfirmationLogBinding() {
+        return BindingBuilder.bind(orderConfirmationQueue())
+                .to(logExchange())
+                .with("Order_*");
     }
     
-    // Bind the admin log queue to the log exchange with error severity pattern
     @Bean
-    public Binding errorLogBinding() {
-        // Bind to log patterns ending with _Error (e.g., Order_Error, Inventory_Error)
-        return BindingBuilder.bind(adminLogQueue())
+    public Binding sellerStockLogBinding() {
+        return BindingBuilder.bind(sellerStockCheckQueue())
                 .to(logExchange())
-                .with("*_Error");
+                .with("Stock_*");
     }
+
 }

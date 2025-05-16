@@ -32,6 +32,10 @@ public class OrderConfirmationListener {
                 Notification customerNotification = notificationService.createOrderStatusNotification(
                     orderId.toString(), status, userId);
                 notificationService.sendToUser(customerNotification, userId);
+
+                Notification AdminNotification = notificationService.createOrderStatusNotification(
+                    orderId.toString(), status, 1L); // Assuming 1L is the admin user ID
+                notificationService.sendToUser(AdminNotification, 1L);
                 
             } catch (NumberFormatException e) {
                 System.err.println("Error parsing order confirmation message: " + e.getMessage());
