@@ -130,17 +130,19 @@ public class OrderService {
                 order = orderRepository.save(order);
 
                 // Notify user about cancellation due to minimum charge requirement
-//                notificationSender.sendUserNotification(
-//                        userId,
-//                        "Order Canceled",
-//                        "Your order #" + order.getId() + " was canceled because the total ($" +
-//                                cartTotal + ") does not meet the minimum order requirement of $" + MINIMUM_CHARGE
-//                );
-//
-//                // Log the cancellation
-//                notificationSender.sendAdminLog("Order", "Warning",
-//                        "Order #" + order.getId() + " was canceled due to not meeting minimum charge requirement"
-//                );
+                notificationSender.sendOrderConfirmation(
+                        order.getId(),
+                        "Order Canceled due to minimum charge",
+                        userId
+                );
+
+                // Send payment failure notification
+                notificationSender.sendPaymentFailure(order.getId(), "Minimum charge not met");
+
+                // Log the cancellation
+                notificationSender.sendLogMessage("Order", "Warning",
+                        "Order #" + order.getId() + " was canceled due to not meeting minimum charge requirement"
+                );
 
                 // Clear cart after order creation
                 cartService.clearCart();
@@ -162,8 +164,7 @@ public class OrderService {
 
             // Log the error to admin log queue
             try {
-                //notificationSender.sendAdminLog("Order", "Error",
-                        //"Failed to create order: " + e.getMessage());
+                notificationSender.sendLogMessage("Order", "Error", "Failed to create order: " + e.getMessage());
             } catch (Exception logError) {
                 System.err.println("\u001B[31m Failed to log order creation error: " + logError.getMessage() + " \u001B[0m");
             }
@@ -216,8 +217,7 @@ public class OrderService {
 
             // Log the error to admin log queue
             try {
-                //notificationSender.sendAdminLog("Order", "Error",
-                        //"Failed to check product stock for order " + order.getId() + ": " + e.getMessage());
+                notificationSender.sendLogMessage("Order", "Error", "Failed to check product stock for order " + order.getId() + ": " + e.getMessage());
             } catch (Exception logError) {
                 System.err.println("Failed to send error log: " + logError.getMessage());
             }
@@ -231,6 +231,7 @@ public class OrderService {
 
         if (order == null) {
             System.err.println("\u001B[31m Order not found with ID: " + orderId + " \u001B[0m");
+            notificationSender.sendLogMessage("Order", "Error", "Order not found with ID: " + orderId);
             return;
         }
 
@@ -242,28 +243,30 @@ public class OrderService {
                 order.setStatus(OrderStatus.CANCELED);
                 orderRepository.save(order);
                 System.out.println("\u001B[33m Order " + orderId + " canceled: Below minimum charge \u001B[0m");
-
-                // Send notification to user about order cancellation
-                // TODO : yousfi
-                //notificationSender.sendOrderBelowMinimumNotification(order.getUserId(), MINIMUM_CHARGE);
+                notificationSender.sendLogMessage("Order", "Warning",
+                        "Order " + orderId + " canceled: Minimum charge not met");
+                notificationSender.sendPaymentFailure(orderId, "Minimum charge not met");
+                notificationSender.sendOrderConfirmation(orderId, "canceled - minimum charge not met but in stock",  order.getUserId());
             } else {
                 // Update to being delivered
                 order.setStatus(OrderStatus.BEING_DELIVERED);
+                Thread.sleep(7000);
+                order.setStatus(OrderStatus.DELIVERED);
                 orderRepository.save(order);
                 System.out.println("\u001B[32m Order " + orderId + " updated to BEING_DELIVERED \u001B[0m");
 
                 // Send notification to user about successful order
-                notificationSender.sendOrderConfirmation(order.getUserId(), "Your order is being processed", orderId);
+                notificationSender.sendOrderConfirmation(orderId, "confirmed - Your order is being processed", order.getUserId());
             }
         } else {
             // Not enough stock, cancel order
             order.setStatus(OrderStatus.CANCELED);
             orderRepository.save(order);
             System.out.println("\u001B[33m Order " + orderId + " canceled: Insufficient stock \u001B[0m");
-
-            // Send notification to user about stock issue
-            // TODO : yousfi
-            //notificationSender.sendInsufficientStockNotification(order.getUserId(), orderId);
+            notificationSender.sendLogMessage("Order", "Warning",
+                    "Order " + orderId + " canceled: Insufficient stock");
+            notificationSender.sendPaymentFailure(orderId, "Insufficient stock");
+            notificationSender.sendOrderConfirmation(orderId, "Insufficient stock", order.getUserId());
         }
     }
 

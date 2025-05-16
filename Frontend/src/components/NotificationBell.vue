@@ -26,11 +26,15 @@
             <div class="spinner-border text-primary spinner-border-sm" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-          </div>          <template v-else-if="notifications.length > 0">
-            <template v-if="userType === 'admin'">
+          </div>          <template v-else-if="notifications.length > 0">            <template v-if="userType === 'admin'">
               <!-- Group notifications by service for admin -->
-              <div v-for="service in groupedServices" :key="service" class="notification-group">
-                <div class="notification-group-header" v-if="getServiceNotifications(service).length">
+              <div v-if="groupedServices.length === 0" class="no-notifications">
+                <i class="bi bi-inbox text-muted fs-4 mb-2"></i>
+                <p class="text-muted mb-0">No service notifications available</p>
+              </div>
+              <div v-else v-for="service in groupedServices" :key="service" class="notification-group">
+                <div class="notification-group-header">
+                  <i class="bi bi-layers me-2"></i>
                   {{ service }}
                   <span class="badge bg-secondary ms-2">{{ getServiceNotifications(service).length }}</span>
                 </div>
@@ -56,20 +60,16 @@
                     </div>
                     <div class="notification-message">
                       <template v-if="notification.type === 'stock'">
-                        <strong>{{ notification.metadata?.productName }}</strong>
-                        <div>Quantity: {{ notification.metadata?.quantity }}</div>
-                        <div>Seller: {{ notification.metadata?.sellerCompanyName }}</div>
+                          {{ notification.message }}
                       </template>
                       <template v-else-if="notification.type === 'order'">
-                        <strong>Order #{{ notification.metadata?.orderId }}</strong>
-                        <div>Status: {{ notification.metadata?.status }}</div>
+                          {{ notification.message }}
                       </template>
                       <template v-else-if="notification.type === 'payment'">
-                        <strong>Order #{{ notification.metadata?.orderId }}</strong>
-                        <div class="text-danger">{{ notification.metadata?.reason }}</div>
+                          {{ notification.message }}
                       </template>
                       <template v-else>
-                        {{ notification.message }}
+                          {{ notification.message }}
                       </template>
                     </div>
                     <div class="notification-time">
@@ -91,7 +91,8 @@
                    @click="markAsRead(notification)">
                 <div class="notification-icon">
                   <i :class="getNotificationIcon(notification.type)"></i>
-                </div>                  <div class="notification-content">
+                </div>
+                <div class="notification-content">
                   <div class="notification-title d-flex align-items-center">
                     <span>{{ notification.title }}</span>
                     <span v-if="notification.severity" 
@@ -100,24 +101,7 @@
                       {{ notification.severity }}
                     </span>
                   </div>
-                  <div class="notification-message">
-                    <template v-if="notification.type === 'stock'">
-                      <strong>{{ notification.metadata?.productName }}</strong>
-                      <div>Quantity: {{ notification.metadata?.quantity }}</div>
-                      <div>Seller: {{ notification.metadata?.sellerCompanyName }}</div>
-                    </template>
-                    <template v-else-if="notification.type === 'order'">
-                      <strong>Order #{{ notification.metadata?.orderId }}</strong>
-                      <div>Status: {{ notification.metadata?.status }}</div>
-                    </template>
-                    <template v-else-if="notification.type === 'payment'">
-                      <strong>Order #{{ notification.metadata?.orderId }}</strong>
-                      <div class="text-danger">{{ notification.metadata?.reason }}</div>
-                    </template>
-                    <template v-else>
-                      {{ notification.message }}
-                    </template>
-                  </div>
+                  <div class="notification-message">{{ notification.message }}</div>
                   <div class="notification-time">
                     {{ formatTime(notification.timestamp || notification.time) }}
                   </div>
@@ -162,7 +146,8 @@ export default {
     };
   },
 
-  computed: {
+  computed: {    
+    
     sortedNotifications() {
       return [...this.notifications].sort((a, b) => {
         // Sort by read status first (unread first)
@@ -182,12 +167,25 @@ export default {
         return timeB - timeA;
       });
     },
-
+    
     groupedServices() {
-      if (!this.userType === 'admin') return [];
-      return [...new Set(this.notifications
-        .filter(n => n.serviceName)
-        .map(n => n.serviceName))];
+      // Debug logs
+      console.log('User type:', this.userType);
+      console.log('Notifications:', this.notifications);
+      
+      if (this.userType !== 'admin') {
+        console.log('Not an admin user');
+        return [];
+      }
+      
+      // Get unique service names, ensuring we have a valid serviceName
+      const services = [...new Set(this.notifications
+        .filter(n => n.serviceName && typeof n.serviceName === 'string')
+        .map(n => n.serviceName))]
+        .filter(Boolean);
+      
+      console.log('Grouped services:', services);
+      return services;
     }
   },
 
@@ -234,17 +232,13 @@ export default {
       }
     },    
     setupSubscriptions() {
-      // Subscribe to general notifications
       WebSocketService.subscribe('*', this.handleNotification);
       
-      // Subscribe to user type specific notifications
       WebSocketService.subscribe(this.userType, this.handleNotification);
       
-      // Subscribe to our RabbitMQ topic exchange notifications
       WebSocketService.subscribe('order', this.handleNotification);
       WebSocketService.subscribe('stock', this.handleNotification);
       
-      // Special subscriptions for different user types
       if (this.userType === 'admin') {
         WebSocketService.subscribe('error', this.handleNotification);
         WebSocketService.subscribe('system', this.handleNotification);
@@ -255,7 +249,9 @@ export default {
         WebSocketService.subscribe('order', this.handleNotification);
         WebSocketService.subscribe('payment', this.handleNotification);
       }
-    },    disconnectWebSocket() {
+    },    
+    
+    disconnectWebSocket() {
       if (this.wsConnected) {
         WebSocketService.unsubscribe('*', this.handleNotification);
         WebSocketService.unsubscribe(this.userType, this.handleNotification);
@@ -275,7 +271,9 @@ export default {
           WebSocketService.unsubscribe('payment', this.handleNotification);
         }
       }
-    },    handleNotification(notification) {
+    },    
+    
+    handleNotification(notification) {
       console.log('NotificationBell received notification:', notification);
       
       // For notifications coming from RabbitMQ topic exchange, they might need parsing
@@ -284,45 +282,46 @@ export default {
           const parts = notification.message.split(':');
           let cleanNotification;
           
+          // Debug log for parsed notification
+          console.log('Parsing notification message:', parts);
+          
           // StockCheckListener format: "productName:quantity:sellerCompanyName:sellerId"
-          if (parts.length === 4) {
-            const productName = parts[0];
-            const quantity = parseInt(parts[1]);
-            const sellerCompanyName = parts[2];
-            const sellerId = parts[3];
+          if (parts.length >= 4) {
+            const [productName, quantityStr, sellerCompanyName, sellerId] = parts;
+            const quantity = parseInt(quantityStr);
             
             cleanNotification = {
+              ...notification,
               type: 'stock',
               title: 'Stock Alert',
               message: `Product '${productName}' from ${sellerCompanyName} has ${quantity} units remaining`,
               severity: quantity < 5 ? 'Error' : 'Warning',
               serviceName: 'Stock',
               read: false,
-              id: `stock_${Date.now()}`,
-              timestamp: new Date().toISOString(),
+              id: notification.id || `stock_${Date.now()}`,
+              timestamp: notification.timestamp || new Date().toISOString(),
               metadata: {
                 productName,
                 quantity,
                 sellerCompanyName,
-                sellerId
+                sellerId: parseInt(sellerId)
               }
             };
           }
           // OrderConfirmationListener format: "orderId:status:userId"
-          else if (parts.length === 3) {
-            const orderId = parts[0];
-            const status = parts[1];
-            const userId = parts[2];
+          else if (parts.length >= 3) {
+            const [orderId, status, userId] = parts;
             
             cleanNotification = {
+              ...notification,
               type: 'order',
               title: 'Order Status Update',
               message: `Order #${orderId} ${status.toLowerCase()}`,
               severity: status.toLowerCase() === 'failed' ? 'Error' : 'Info',
               serviceName: 'Order',
               read: false,
-              id: `order_${Date.now()}`,
-              timestamp: new Date().toISOString(),
+              id: notification.id || `order_${Date.now()}`,
+              timestamp: notification.timestamp || new Date().toISOString(),
               metadata: {
                 orderId: parseInt(orderId),
                 status,
@@ -332,21 +331,22 @@ export default {
           }
           // PaymentFailureListener format: "orderId:reason"
           else if (parts.length >= 2) {
-            const orderId = parts[0];
-            const reason = parts.slice(1).join(':');
+            const [orderId, ...reasonParts] = parts;
+            const reason = reasonParts.join(':');
             
             cleanNotification = {
+              ...notification,
               type: 'payment',
               title: 'Payment Failed',
-              message: `Payment failed for order #${orderId}`,
+              message: `Order #${orderId}: ${reason}`,
               severity: 'Error',
               serviceName: 'Payment',
               read: false,
-              id: `payment_${Date.now()}`,
-              timestamp: new Date().toISOString(),
+              id: notification.id || `payment_${Date.now()}`,
+              timestamp: notification.timestamp || new Date().toISOString(),
               metadata: {
-                orderId: parseInt(orderId),
-                reason: reason.trim()
+                orderId,
+                reason
               }
             };
           }
@@ -362,15 +362,15 @@ export default {
       
       // If we get here, handle it as a standard notification
       const standardNotification = {
+        ...notification,
         type: notification.type || 'info',
         title: notification.title || 'Notification',
         message: notification.message || 'No message provided',
         severity: notification.severity || 'Info',
         serviceName: notification.serviceName || 'System',
         read: false,
-        id: `notification_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        metadata: notification.metadata || {}
+        id: notification.id || `notification_${Date.now()}`,
+        timestamp: notification.timestamp || new Date().toISOString()
       };
       
       this.addNotification(standardNotification);
@@ -449,18 +449,23 @@ export default {
       } catch (error) {
         console.error('Error marking all notifications as read:', error);
       }
-    },
-
-    async loadNotifications() {
+    },    async loadNotifications() {
       try {
         this.loading = true;
         const headers = getAuthHeaders();
         const token = headers.Authorization?.split(' ')[1];
-        if (!token) return;
+        if (!token) {
+          console.warn('No auth token available');
+          return;
+        }
 
         const userId = WebSocketService.extractUserIdFromToken(token);
-        if (!userId) return;
+        if (!userId) {
+          console.warn('No user ID found in token');
+          return;
+        }
 
+        console.log('Loading notifications for user:', userId);
         const response = await fetch(
           `http://localhost:8085/api/notifications/by-user/${userId}`,
           { headers }
@@ -468,12 +473,19 @@ export default {
 
         if (response.ok) {
           const data = await response.json();
+          console.log('Received notifications:', data);
+          
           this.notifications = data.map(n => ({
             ...n,
+            serviceName: n.serviceName || n.type || 'System', // Ensure serviceName is set
             timestamp: n.timestamp || new Date().toISOString()
           }));
+          
           this.unreadCount = data.filter(n => !n.read).length;
           this.lastRefresh = new Date();
+          
+          console.log('Processed notifications:', this.notifications);
+          console.log('Current groupedServices:', this.groupedServices);
         }
       } catch (error) {
         console.error('Error loading notifications:', error);
@@ -662,22 +674,12 @@ export default {
 }
 
 .notification-header {
-  background-color: white;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.notification-header h6 {
-  font-size: 1rem;
-  color: #212529;
-}
-
-.notification-header a {
-  font-size: 0.875rem;
-  color: #0d6efd !important;
-}
-
-.notification-header a:hover {
-  text-decoration: underline !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f9fa;
 }
 
 .notification-body {

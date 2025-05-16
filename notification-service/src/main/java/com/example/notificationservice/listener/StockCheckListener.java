@@ -29,7 +29,9 @@ public class StockCheckListener {
                 String productName = parts[0];
                 int quantity = Integer.parseInt(parts[1]);
                 String sellerCompanyName = parts[2];
-                Long sellerId = Long.parseLong(parts[3]);                // Create stock alert notification
+                Long sellerId = Long.parseLong(parts[3]);
+
+                // Create stock alert notification
                 Notification notification = notificationService.createStockAlertNotification(
                     productName, 
                     quantity,

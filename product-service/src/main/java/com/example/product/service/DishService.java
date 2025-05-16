@@ -166,18 +166,18 @@ public class DishService {
                             "): Stock DECREASED from " + oldStock +
                             " to " + newStock + "\u001B[0m");
 
-                    // Check if stock is low after decrease
-                    if (newStock < 10) {
-                        // For stock decrease during orders, we need to make an HTTP call to auth service
-                        // to get the seller ID. For now, we'll just use the companyName in the message
-                        notificationService.sendStockNotification(
-                            productId,
-                            dish.getName(),
-                            newStock,
-                            dish.getCompanyName(),
-                            null  // The notification service will need to look up the seller ID
-                        );
-                    }
+//                    // Check if stock is low after decrease
+//                    if (newStock < 10) {
+//                        // For stock decrease during orders, we need to make an HTTP call to auth service
+//                        // to get the seller ID. For now, we'll just use the companyName in the message
+//                        notificationService.sendStockNotification(
+//                            productId,
+//                            dish.getName(),
+//                            newStock,
+//                            dish.getCompanyName(),
+//                            null  // The notification service will need to look up the seller ID
+//                        );
+//                    }
 
                     notificationService.sendLogMessage("Dish","Info",
                             "Stock decreased for product " + dish.getName() +

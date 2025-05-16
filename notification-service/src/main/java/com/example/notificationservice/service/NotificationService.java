@@ -93,8 +93,7 @@ public class NotificationService {
     public Notification createOrderStatusNotification(String orderId, String status, Long userId) {
         return new Notification(
             "order",
-            "Order " + orderId + " Status Update",
-            "Your order status has been updated to: " + status,
+            "Order " + orderId + " Status Update", status,
             userId);
     }
     
