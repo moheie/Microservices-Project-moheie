@@ -15,7 +15,7 @@ import java.util.Map;
 @Stateless
 public class DishService {
     @PersistenceContext(unitName = "product-service")
-    EntityManager entityManager;
+    private EntityManager entityManager;
 
     @Inject
     private NotificationService notificationService;
@@ -25,7 +25,7 @@ public class DishService {
         entityManager.persist(dish);
 
         // Log the new dish creation
-        notificationService.sendLogMessage("Info",
+        notificationService.sendLogMessage("Dish","Info",
                 "New dish created: " + name + " by " + companyName);
 
         // Check if initial stock is low
@@ -33,33 +33,34 @@ public class DishService {
             notificationService.sendStockNotification(
                     dish.getId(),
                     dish.getName(),
-                    stockCount
+                    stockCount,
+                    companyName
             );
-            notificationService.sendLogMessage("Warning",
+            notificationService.sendLogMessage("Dish","Warning",
                     "Low initial stock for new dish " + dish.getName() + " (" + companyName + "): " + stockCount);
         }
 
         return Response.ok("Dish created").build();
     }
 
-    //probably wont need this IDs are mainly used for database
-    public Response getDishByID(Long id) {
-        Dish dish = entityManager.find(Dish.class, id);
-        if (dish == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("Dish not found").build();
-        }
-        return Response.ok(dish).build();
-    }
-
-    public Response getDishByName(String name) {
-        Dish dish = entityManager.createNamedQuery("Dish.findByName", Dish.class)
-                .setParameter("name", name)
-                .getSingleResult();
-        if (dish == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("Dish not found").build();
-        }
-        return Response.ok(dish).build();
-    }
+//    //probably wont need this IDs are mainly used for database
+//    public Response getDishByID(Long id) {
+//        Dish dish = entityManager.find(Dish.class, id);
+//        if (dish == null) {
+//            return Response.status(Response.Status.NOT_FOUND).entity("Dish not found").build();
+//        }
+//        return Response.ok(dish).build();
+//    }
+//
+//    public Response getDishByName(String name) {
+//        Dish dish = entityManager.createNamedQuery("Dish.findByName", Dish.class)
+//                .setParameter("name", name)
+//                .getSingleResult();
+//        if (dish == null) {
+//            return Response.status(Response.Status.NOT_FOUND).entity("Dish not found").build();
+//        }
+//        return Response.ok(dish).build();
+//    }
 
 
     public Response getDishesByCompanyName(String companyName) {
@@ -93,19 +94,20 @@ public class DishService {
             // Check if stock is low (below 10) and notify sellers
             if (stockCount < 10) {
                 notificationService.sendStockNotification(
-                        dishId,
-                        dish.getName(),
-                        stockCount
+                    dishId,
+                    dish.getName(),
+                    stockCount,
+                    companyName
                 );
 
                 // Log low stock event
-                notificationService.sendLogMessage("Warning",
+                notificationService.sendLogMessage("Dish","Warning",
                         "Low stock for dish " + dish.getName() + " (" + companyName + "): " + stockCount + " remaining");
             }
 
             // Log if stock was increased
             if (stockCount > oldStockCount) {
-                notificationService.sendLogMessage("Info",
+                notificationService.sendLogMessage("Dish","Info",
                         "Stock increased for dish " + dish.getName() + " (" + companyName + "): " +
                                 oldStockCount + " → " + stockCount);
             }
@@ -160,6 +162,10 @@ public class DishService {
                     System.out.println("\u001B[32m Product " + productId + " (" + dish.getName() +
                             "): Stock DECREASED from " + oldStock +
                             " to " + newStock + "\u001B[0m");
+                    notificationService.sendLogMessage("Dish","Info",
+                            "Stock decreased for product " + dish.getName() +
+                                    " (ID: " + productId + "): " +
+                                    oldStock + " → " + newStock);
                 }
             }
             System.out.println("\u001B[32m === STOCK DECREASE COMMITTED SUCCESSFULLY === \u001B[0m");

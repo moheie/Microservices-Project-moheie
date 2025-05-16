@@ -7,45 +7,43 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
     // Queue names
-    public static final String ORDER_CONFIRMATION_QUEUE = "order-confirmation";
+    public static final String SELLER_STOCK_CHECK_QUEUE = "seller-stock-check";
+
+    public static final String USER_ORDER_CONFIRMATION_QUEUE = "user-order-confirmation";    
     public static final String PAYMENT_FAILED_QUEUE = "payment-failed";
-    public static final String ORDER_STATUS_QUEUE = "order-status";
-    public static final String STOCK_CHECK_QUEUE = "stock-check";
-    
-    // Exchange names
-    public static final String LOG_EXCHANGE = "log";
+    public static final String LOG_QUEUE = "admin-log";
     public static final String PAYMENTS_EXCHANGE = "payments-exchange";
+    public static final String ADMIN_LOG_EXCHANGE = "admin-log";
     
     @Bean
     public Queue orderConfirmationQueue() {
-        return new Queue(ORDER_CONFIRMATION_QUEUE, true);
-    }
-
-    @Bean
+        return QueueBuilder.nonDurable(USER_ORDER_CONFIRMATION_QUEUE)
+                .build();
+    }@Bean
     public Queue paymentFailedQueue() {
-        return new Queue(PAYMENT_FAILED_QUEUE, true);
-    }
-    
-    @Bean
-    public Queue orderStatusQueue() {
-        return new Queue(ORDER_STATUS_QUEUE, true);
-    }
-    
-    @Bean
-    public Queue stockCheckQueue() {
-        return new Queue(STOCK_CHECK_QUEUE, true);
+        // Using the builder pattern with explicit arguments map instead of boolean flag
+        return QueueBuilder.durable(PAYMENT_FAILED_QUEUE)
+                .build();
     }
 
-    // Topic exchange for logs with different routing keys based on severity
+    @Bean
+    public Queue sellerStockCheckQueue() {
+        return QueueBuilder.nonDurable(SELLER_STOCK_CHECK_QUEUE)
+                .build();
+    }    // Topic exchange for logs with different routing keys based on severity
     @Bean
     public TopicExchange logExchange() {
-        return new TopicExchange(LOG_EXCHANGE);
+        return ExchangeBuilder.topicExchange(ADMIN_LOG_EXCHANGE)
+                .durable(true)
+                .build();
     }
     
     // Direct exchange for payment events
     @Bean
     public DirectExchange paymentsExchange() {
-        return new DirectExchange(PAYMENTS_EXCHANGE);
+        return ExchangeBuilder.directExchange(PAYMENTS_EXCHANGE)
+                .durable(true)
+                .build();
     }
     
     // Bind payment-failed queue to the payments exchange with PaymentFailed routing key
@@ -54,14 +52,34 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(paymentFailedQueue())
                 .to(paymentsExchange())
                 .with("PaymentFailed");
+    }    // Define the admin-log queue properly
+    @Bean
+    public Queue adminLogQueue() {
+        return QueueBuilder.durable(LOG_QUEUE)
+                .build();
     }
     
-    // Bind log queues by severity patterns
+    // Bind the admin log queue to the log exchange with error severity pattern
     @Bean
     public Binding errorLogBinding() {
-        // Bind to log patterns ending with _Error
-        return BindingBuilder.bind(new Queue("error-logs", true))
+        // Bind to log patterns ending with _Error (e.g., Order_Error, Inventory_Error)
+        return BindingBuilder.bind(adminLogQueue())
                 .to(logExchange())
                 .with("*_Error");
+    }
+    
+    // While we only notify admins of errors, we can still log other severities
+    @Bean
+    public Binding infoLogBinding() {
+        return BindingBuilder.bind(adminLogQueue())
+                .to(logExchange())
+                .with("*_Info");
+    }
+    
+    @Bean
+    public Binding warningLogBinding() {
+        return BindingBuilder.bind(adminLogQueue())
+                .to(logExchange())
+                .with("*_Warning");
     }
 }

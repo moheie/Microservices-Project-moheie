@@ -16,17 +16,31 @@ public class LogListener {
         this.notificationService = notificationService;
     }
     
-    @RabbitListener(queues = "error-logs")
-    public void handleErrorLogs(String message) {
-        System.out.println("Admin Notification (Error): " + message);
-        
-        // Parse service name and error message
+    @RabbitListener(queues = "admin-log")
+    public void handleLogs(String message) {
+        // Parse service name, severity and message
+        // Format from services: "serviceName_severity:message"
         String[] parts = message.split(":", 2);
-        String source = parts[0].replace("_Error", "");
-        String errorMessage = parts.length > 1 ? parts[1] : "Unknown error";
+        String serviceInfo = parts[0];
+        String logMessage = parts.length > 1 ? parts[1] : "No details provided";
         
-        // Create and send notification
-        Notification notification = notificationService.createErrorNotification(source, errorMessage);
-        notificationService.sendToAdmins(notification);
+        // Parse service name and severity
+        String[] serviceInfoParts = serviceInfo.split("_");
+        String serviceName = serviceInfoParts[0];
+        String severity = serviceInfoParts.length > 1 ? serviceInfoParts[1] : "Info";
+        
+        System.out.println("Log received - Service: " + serviceName + ", Severity: " + severity + ", Message: " + logMessage);
+        
+        // Only notify about errors - using admin ID 1L
+        // In a real system, you would fetch the list of admin IDs from a service
+        if (severity.equals("Error")) {
+            Long adminId = 1L; // Default admin ID
+            System.out.println("Notifying admin about error: " + message);
+            Notification notification = notificationService.createErrorNotification(serviceName, logMessage, adminId);
+            notificationService.sendToUser(notification, adminId);
+        } else {
+            // Just log other severities but don't send notifications
+            System.out.println("Logging " + severity.toLowerCase() + " from " + serviceName + ": " + logMessage);
+        }
     }
 }

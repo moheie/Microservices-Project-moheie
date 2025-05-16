@@ -19,18 +19,19 @@ public class NotificationService {
      * @param productId The product ID
      * @param productName The name of the product
      * @param quantity The current stock quantity
+     * @param sellerCompanyName The name of the seller's company
      */
-    public void sendStockNotification(Long productId, String productName, int quantity) {
+    public void sendStockNotification(Long productId, String productName, int quantity, String sellerCompanyName) {
         try {
-            String message = productId + ":" + productName + ":" + quantity;
+            String message = productName + ":" + quantity + ":" + sellerCompanyName;
             rabbitMQConfig.getChannel().basicPublish(
                 "",  // Default exchange
-                RabbitMQConfig.STOCK_CHECK_QUEUE,  // Queue name
+                RabbitMQConfig.SELLER_STOCK_CHECK_QUEUE,  // Queue name
                 null,
                 message.getBytes(StandardCharsets.UTF_8)
             );
             
-            System.out.println("Sent stock notification for " + productName + " (quantity: " + quantity + ")");
+            System.out.println("Sent stock notification for " + productName + " (quantity: " + quantity + ") to seller: " + sellerCompanyName);
         } catch (IOException e) {
             System.err.println("Failed to send stock notification: " + e.getMessage());
         }
@@ -38,17 +39,17 @@ public class NotificationService {
     
     /**
      * Send a log message
-     * 
+     * @param service The service name
      * @param severity The severity level (Info, Warning, Error)
      * @param message The log message
      */
-    public void sendLogMessage(String severity, String message) {
+    public void sendLogMessage(String service, String severity, String message) {
         try {
-            String routingKey = "Product_" + severity;
+            String routingKey = service + "_" + severity;
             String logMessage = routingKey + ":" + message;
             
             rabbitMQConfig.getChannel().basicPublish(
-                RabbitMQConfig.LOG_EXCHANGE,  // Exchange
+                RabbitMQConfig.ADMIN_LOG_EXCHANGE,  // Exchange
                 routingKey,  // Routing key
                 null,
                 logMessage.getBytes(StandardCharsets.UTF_8)

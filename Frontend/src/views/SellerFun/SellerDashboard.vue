@@ -242,7 +242,22 @@ export default {
         const response = await axios.get('http://localhost:8084/order-service/api/orders/byCompany', {
           headers: getAuthHeaders()
         });
-        orders.value = response.data || [];
+        console.log('Order service response:', response.data);
+        
+        // Process orders to ensure they have the correct structure
+        orders.value = (response.data || []).map(order => {
+          // Ensure we have valid dates
+          const createdAt = order.createdAt ? order.createdAt : new Date().toISOString();
+          
+          // Ensure companyDishes is always an array
+          const companyDishes = Array.isArray(order.companyDishes) ? order.companyDishes : [];
+          
+          return {
+            ...order,
+            createdAt,
+            companyDishes
+          };
+        });
       } catch (err) {
         console.error('Error fetching orders:', err);
       } finally {
@@ -331,11 +346,14 @@ export default {
         return new Date(year, month-1, day, hour, minute, second).toLocaleString();
       }
       return new Date(date).toLocaleString();
-    };const calculateOrderTotal = (order) => {
+    };    const calculateOrderTotal = (order) => {
+      if (!order.companyDishes || !Array.isArray(order.companyDishes)) {
+        return formatPrice(0);
+      }
       return formatPrice(order.companyDishes.reduce((total, dish) => {
         return total + (dish.price * dish.quantity);
       }, 0));
-    };    const showOrdersHistory = async () => {
+    };const showOrdersHistory = async () => {
       await fetchOrders();
       showOrderHistory.value = true;
     };

@@ -27,13 +27,12 @@ public class NotificationSender {
     public void sendOrderConfirmation(Long orderId, String status, Long userId) {
         try {
             String message = orderId + ":" + status + ":" + userId;
-            Channel channel = rabbitMQConfig.getChannel();
-            
-            channel.basicPublish(
-                "",  // Default exchange
-                "order-confirmation",  // Queue name
-                null,
-                message.getBytes(StandardCharsets.UTF_8)
+
+            rabbitMQConfig.getChannel().basicPublish(
+                    "",
+                    RabbitMQConfig.USER_ORDER_CONFIRMATION_QUEUE,  // Use the correct queue
+                    null,
+                    message.getBytes(StandardCharsets.UTF_8)
             );
             
             System.out.println("Sent order confirmation: " + message);
@@ -51,13 +50,12 @@ public class NotificationSender {
     public void sendPaymentFailure(Long orderId, String reason) {
         try {
             String message = orderId + ":" + reason;
-            Channel channel = rabbitMQConfig.getChannel();
-            
-            channel.basicPublish(
-                "payments-exchange",  // Exchange
-                "PaymentFailed",  // Routing key
-                null,
-                message.getBytes(StandardCharsets.UTF_8)
+
+            rabbitMQConfig.getChannel().basicPublish(
+                    RabbitMQConfig.PAYMENTS_EXCHANGE,
+                    "PaymentFailed",
+                    null,
+                    message.getBytes(StandardCharsets.UTF_8)
             );
             
             System.out.println("Sent payment failure notification: " + message);
@@ -77,10 +75,9 @@ public class NotificationSender {
         try {
             String routingKey = service + "_" + severity;
             String logMessage = routingKey + ":" + message;
-            Channel channel = rabbitMQConfig.getChannel();
-            
-            channel.basicPublish(
-                "log",  // Exchange
+
+            rabbitMQConfig.getChannel().basicPublish(
+                RabbitMQConfig.ADMIN_LOG_EXCHANGE,  // Exchange
                 routingKey,  // Routing key
                 null,
                 logMessage.getBytes(StandardCharsets.UTF_8)
@@ -92,46 +89,23 @@ public class NotificationSender {
         }
     }
 
-    public void sendOrderCancellation(Long orderId, String reason) {
-        try {
-            String message = orderId + ":" + reason;
-            Channel channel = rabbitMQConfig.getChannel();
-
-            channel.basicPublish(
-                "",  // Default exchange
-                "order-cancellation",  // Queue name
-                null,
-                message.getBytes(StandardCharsets.UTF_8)
-            );
-
-            System.out.println("Sent order cancellation: " + message);
-        } catch (IOException e) {
-            System.err.println("Failed to send order cancellation: " + e.getMessage());
-        }
-    }
+//    public void sendOrderCancellation(Long orderId, String reason) {
+//        try {
+//            String message = orderId + ":" + reason;
+//            Channel channel = rabbitMQConfig.getChannel();
+//
+//            channel.basicPublish(
+//                "",  // Default exchange
+//                "order-cancellation",  // Queue name
+//                null,
+//                message.getBytes(StandardCharsets.UTF_8)
+//            );
+//
+//            System.out.println("Sent order cancellation: " + message);
+//        } catch (IOException e) {
+//            System.err.println("Failed to send order cancellation: " + e.getMessage());
+//        }
+//    }
     
-    /**
-     * Send a stock check notification
-     * 
-     * @param productId The product ID
-     * @param productName The product name
-     * @param quantity The current stock quantity
-     */
-    public void sendStockCheck(String productId, String productName, int quantity) {
-        try {
-            String message = productId + ":" + productName + ":" + quantity;
-            Channel channel = rabbitMQConfig.getChannel();
-            
-            channel.basicPublish(
-                "",  // Default exchange
-                "stock-check",  // Queue name
-                null,
-                message.getBytes(StandardCharsets.UTF_8)
-            );
-            
-            System.out.println("Sent stock check notification: " + message);
-        } catch (IOException e) {
-            System.err.println("Failed to send stock check notification: " + e.getMessage());
-        }
-    }
+
 }

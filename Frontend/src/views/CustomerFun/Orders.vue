@@ -11,14 +11,14 @@ export default {
     const loading = ref(true);
     const error = ref(null);
     const expandedOrders = ref([]);
-    const statusFilter = ref('all');
-
-    const fetchOrders = async () => {
+    const statusFilter = ref('all');    const fetchOrders = async () => {
       loading.value = true;
       try {
         const headers = getAuthHeaders();
         const response = await axios.get('http://localhost:8084/order-service/api/orders/getOrders', {headers});
-        orders.value = response.data;
+        // Check if we have valid order data, otherwise set to empty array
+        orders.value = response.data && Array.isArray(response.data) ? response.data : [];
+        console.log('Orders fetched:', orders.value);
       } catch (err) {
         error.value = 'Failed to load orders. Please try again.';
         console.error('Error fetching orders:', err);
@@ -198,13 +198,13 @@ export default {
       <div class="card-header bg-primary text-white">
         <h2>My Orders</h2>
       </div>
-      <div class="card-body">
-        <div v-if="loading" class="text-center">
+      <div class="card-body">        <div v-if="loading" class="text-center">
           <div class="spinner-border" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p>Loading your orders...</p>
-        </div>        <div v-else-if="!orders.length" class="text-center">
+        </div>
+        <div v-else-if="!orders || orders.length === 0" class="text-center">
           <p>You haven't placed any orders yet.</p>
           <router-link to="/browse-dishes" class="btn btn-primary">Browse Dishes</router-link>
         </div>

@@ -22,29 +22,11 @@ public class NotificationAPIController {
     }
     
     /**
-     * Get all notifications for a specific user type
-     */
-    @GetMapping("/by-type/{userType}")
-    public ResponseEntity<List<Notification>> getByUserType(@PathVariable String userType) {
-        List<Notification> notifications = notificationService.getNotificationsByUserType(userType);
-        return ResponseEntity.ok(notifications);
-    }
-    
-    /**
      * Get all notifications for a specific user ID
      */
     @GetMapping("/by-user/{userId}")
     public ResponseEntity<List<Notification>> getByUserId(@PathVariable Long userId) {
         List<Notification> notifications = notificationService.getNotificationsByUserId(userId);
-        return ResponseEntity.ok(notifications);
-    }
-    
-    /**
-     * Get unread notifications for a specific user type
-     */
-    @GetMapping("/unread/by-type/{userType}")
-    public ResponseEntity<List<Notification>> getUnreadByUserType(@PathVariable String userType) {
-        List<Notification> notifications = notificationService.getUnreadNotificationsByUserType(userType);
         return ResponseEntity.ok(notifications);
     }
     
@@ -67,15 +49,6 @@ public class NotificationAPIController {
     }
     
     /**
-     * Mark all notifications for a user type as read
-     */
-    @PatchMapping("/read-all/by-type/{userType}")
-    public ResponseEntity<Void> markAllAsReadByType(@PathVariable String userType) {
-        notificationService.markAllAsRead(userType);
-        return ResponseEntity.ok().build();
-    }
-    
-    /**
      * Mark all notifications for a specific user ID as read
      */
     @PatchMapping("/read-all/by-user/{userId}")
@@ -90,18 +63,15 @@ public class NotificationAPIController {
     @PostMapping("/test")
     public ResponseEntity<Notification> createTestNotification(@RequestBody Map<String, String> payload) {
         String type = payload.getOrDefault("type", "info");
-        String userType = payload.getOrDefault("userType", "admin");
         String title = payload.getOrDefault("title", "Test Notification");
         String message = payload.getOrDefault("message", "This is a test notification");
         Long userId = payload.containsKey("userId") ? Long.parseLong(payload.get("userId")) : null;
         
-        Notification notification = new Notification(type, title, message, userType);
+        Notification notification = new Notification(type, title, message);
         
         if (userId != null) {
             notification.setUserId(userId);
             notificationService.sendToUser(notification, userId);
-        } else {
-            notificationService.sendToUserType(notification);
         }
         
         return ResponseEntity.ok(notification);

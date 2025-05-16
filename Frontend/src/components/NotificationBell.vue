@@ -1,48 +1,76 @@
 <template>
   <div class="notification-bell position-relative">
-    <button class="btn btn-link" @click="toggleNotifications">
+    <button class="btn btn-link position-relative" @click="toggleNotifications">
       <i class="bi bi-bell-fill fs-4"></i>
-      <span v-if="unreadCount > 0" class="badge bg-danger rounded-pill notification-badge">{{ unreadCount }}</span>
+      <span v-if="unreadCount > 0" 
+            class="badge bg-danger rounded-pill notification-badge">
+        {{ unreadCount }}
+      </span>
     </button>
-    <div class="notification-dropdown shadow" v-if="showNotifications">
-      <div class="notification-header">
-        <h6 class="m-0">Notifications</h6>
-        <button v-if="notifications.length > 0" class="btn btn-sm btn-link" @click="markAllAsRead">
-          Mark all as read
-        </button>
-      </div>
-      <div class="notification-body">
-        <template v-if="notifications.length > 0">
-          <div
-            v-for="(notification, index) in notifications"
-            :key="index"
-            class="notification-item"
-            :class="{ 'unread': !notification.read }"
-            @click="markAsRead(index)"
-          >
-            <div class="notification-icon">
-              <i :class="getNotificationIcon(notification.type)"></i>
-            </div>
-            <div class="notification-content">
-              <div class="notification-title">{{ notification.title }}</div>
-              <div class="notification-message">{{ notification.message }}</div>
-              <div class="notification-time">{{ formatTime(notification.time) }}</div>
+    
+    <transition name="fade">
+      <div v-if="showNotifications" class="notification-dropdown shadow">
+        <div class="notification-header">
+          <h6 class="m-0">Notifications</h6>
+          <div class="d-flex gap-2">
+            <button v-if="notifications.length > 0" 
+                    class="btn btn-sm btn-link text-primary"
+                    @click="markAllAsRead">
+              Mark all as read
+            </button>
+            <button class="btn btn-sm btn-link text-secondary"
+                    @click="refreshNotifications">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="notification-body">
+          <div v-if="loading" class="text-center py-3">
+            <div class="spinner-border text-primary spinner-border-sm" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
           </div>
-        </template>
-        <div v-else class="no-notifications">
-          No notifications available
+          
+          <template v-else-if="notifications.length > 0">
+            <div v-for="notification in sortedNotifications"
+                 :key="notification.id"
+                 class="notification-item"
+                 :class="{ 
+                   'unread': !notification.read,
+                   [getNotificationClass(notification.type)]: true
+                 }"
+                 @click="markAsRead(notification)">
+              <div class="notification-icon">
+                <i :class="getNotificationIcon(notification.type)"></i>
+              </div>
+              <div class="notification-content">
+                <div class="notification-title">{{ notification.title }}</div>
+                <div class="notification-message">{{ notification.message }}</div>
+                <div class="notification-time">
+                  {{ formatTime(notification.timestamp || notification.time) }}
+                </div>
+              </div>
+            </div>
+          </template>
+          
+          <div v-else class="no-notifications">
+            <i class="bi bi-inbox text-muted fs-4 mb-2"></i>
+            <p class="text-muted mb-0">No notifications available</p>
+          </div>
         </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
 
 <script>
 import WebSocketService from '@/services/WebSocketService';
+import { getAuthHeaders } from '@/utils/auth';
 
 export default {
   name: "NotificationBell",
+  
   props: {
     userType: {
       type: String,
@@ -50,275 +78,310 @@ export default {
       validator: value => ['admin', 'seller', 'customer'].includes(value)
     }
   },
+
   data() {
     return {
       showNotifications: false,
       notifications: [],
-      unreadCount: 0
+      unreadCount: 0,
+      loading: false,
+      wsConnected: false,
+      lastRefresh: null
     };
   },
+
+  computed: {
+    sortedNotifications() {
+      return [...this.notifications].sort((a, b) => {
+        // Sort by read status first (unread first)
+        if (a.read !== b.read) return a.read ? 1 : -1;
+        
+        // Then sort by timestamp
+        const timeA = new Date(a.timestamp || a.time);
+        const timeB = new Date(b.timestamp || b.time);
+        return timeB - timeA;
+      });
+    }
+  },
+
   mounted() {
     this.setupNotificationSystem();
-    // Demo notifications based on user type
-    this.loadDemoNotifications();
+    this.loadNotifications();
     
     // Close dropdown when clicking outside
     document.addEventListener('click', this.handleOutsideClick);
+    
+    // Refresh notifications periodically (every 5 minutes)
+    this.refreshInterval = setInterval(this.refreshNotifications, 300000);
   },
+
   beforeUnmount() {
     document.removeEventListener('click', this.handleOutsideClick);
-    // Unsubscribe from notifications
-    WebSocketService.unsubscribe('*', this.handleNotification);
-  },  methods: {
+    clearInterval(this.refreshInterval);
+    this.disconnectWebSocket();
+  },
+  
+  methods: {    
     setupNotificationSystem() {
-      // Connect to WebSocket server and subscribe to notifications
-      const token = sessionStorage.getItem('token');
-      
-      if (token) {
-        WebSocketService.connect(this.userType, token)
+      if (!WebSocketService.isConnected()) {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) {
+          console.warn('No auth token available for notifications');
+          return;
+        }
+
+        console.log(`Connecting to notification service as ${this.userType}...`);
+        WebSocketService.connect(this.userType, headers)
           .then(() => {
-            console.log(`Connected to notification service as ${this.userType}`);
-            WebSocketService.subscribe('*', this.handleNotification);
+            console.log('Successfully connected to notification service');
+            this.wsConnected = true;
+            this.setupSubscriptions();
           })
           .catch(error => {
             console.error('Failed to connect to notification service:', error);
+            this.wsConnected = false;
           });
       } else {
-        console.error('No authentication token available');
+        this.wsConnected = true;
+        this.setupSubscriptions();
       }
     },
-    
+
+    setupSubscriptions() {
+      // Subscribe to general notifications
+      WebSocketService.subscribe('*', this.handleNotification);
+      
+      // Subscribe to user type specific notifications
+      WebSocketService.subscribe(this.userType, this.handleNotification);
+      
+      // Special subscriptions for different user types
+      if (this.userType === 'admin') {
+        WebSocketService.subscribe('error', this.handleNotification);
+        WebSocketService.subscribe('system', this.handleNotification);
+      } else if (this.userType === 'seller') {
+        WebSocketService.subscribe('stock', this.handleNotification);
+        WebSocketService.subscribe('order', this.handleNotification);
+      } else if (this.userType === 'customer') {
+        WebSocketService.subscribe('order', this.handleNotification);
+        WebSocketService.subscribe('payment', this.handleNotification);
+      }
+    },
+
+    disconnectWebSocket() {
+      if (this.wsConnected) {
+        WebSocketService.unsubscribe('*', this.handleNotification);
+        WebSocketService.unsubscribe(this.userType, this.handleNotification);
+        
+        if (this.userType === 'admin') {
+          WebSocketService.unsubscribe('error', this.handleNotification);
+          WebSocketService.unsubscribe('system', this.handleNotification);
+        } else if (this.userType === 'seller') {
+          WebSocketService.unsubscribe('stock', this.handleNotification);
+          WebSocketService.unsubscribe('order', this.handleNotification);
+        } else if (this.userType === 'customer') {
+          WebSocketService.unsubscribe('order', this.handleNotification);
+          WebSocketService.unsubscribe('payment', this.handleNotification);
+        }
+      }
+    },
+
     handleNotification(notification) {
-      // Process received notification
+      console.log('Received notification:', notification);
       this.addNotification(notification);
     },
+
+    addNotification(notification) {
+      // Add timestamp if not present
+      const notificationWithTime = {
+        ...notification,
+        timestamp: notification.timestamp || new Date().toISOString(),
+        read: false
+      };
+      
+      // Add to start of array and update unread count
+      this.notifications.unshift(notificationWithTime);
+      this.unreadCount++;
+      
+      // Show a native browser notification if the dropdown is not visible
+      if (!this.showNotifications) {
+        this.showBrowserNotification(notification);
+      }
+    },
+
+    async markAsRead(notification) {
+      if (!notification.read) {
+        try {
+          const headers = getAuthHeaders();
+          const response = await fetch(
+            `http://localhost:8085/api/notifications/${notification.id}/read`,
+            {
+              method: 'PATCH',
+              headers
+            }
+          );
+
+          if (response.ok) {
+            notification.read = true;
+            this.unreadCount = Math.max(0, this.unreadCount - 1);
+          }
+        } catch (error) {
+          console.error('Error marking notification as read:', error);
+        }
+      }
+    },
+
+    async markAllAsRead() {
+      try {
+        const headers = getAuthHeaders();
+        const token = headers.Authorization?.split(' ')[1];
+        if (!token) return;
+
+        const userId = WebSocketService.extractUserIdFromToken(token);
+        if (!userId) return;
+
+        const response = await fetch(
+          `http://localhost:8085/api/notifications/read-all/by-user/${userId}`,
+          {
+            method: 'PATCH',
+            headers
+          }
+        );
+
+        if (response.ok) {
+          this.notifications.forEach(n => n.read = true);
+          this.unreadCount = 0;
+        }
+      } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+      }
+    },
+
+    async loadNotifications() {
+      try {
+        this.loading = true;
+        const headers = getAuthHeaders();
+        const token = headers.Authorization?.split(' ')[1];
+        if (!token) return;
+
+        const userId = WebSocketService.extractUserIdFromToken(token);
+        if (!userId) return;
+
+        const response = await fetch(
+          `http://localhost:8085/api/notifications/by-user/${userId}`,
+          { headers }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          this.notifications = data.map(n => ({
+            ...n,
+            timestamp: n.timestamp || new Date().toISOString()
+          }));
+          this.unreadCount = data.filter(n => !n.read).length;
+          this.lastRefresh = new Date();
+        }
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    refreshNotifications() {
+      // Only refresh if it's been more than 1 minute since last refresh
+      const now = new Date();
+      if (!this.lastRefresh || (now - this.lastRefresh) > 60000) {
+        this.loadNotifications();
+      }
+    },
+
     toggleNotifications() {
       this.showNotifications = !this.showNotifications;
+      if (this.showNotifications) {
+        this.refreshNotifications();
+      }
     },
+
     handleOutsideClick(event) {
       if (!event.target.closest('.notification-bell')) {
         this.showNotifications = false;
       }
-    },    markAsRead(index) {
-      const notification = this.notifications[index];
-      if (!notification.read) {
-        // Update UI immediately for better user experience
-        this.notifications[index].read = true;
-        this.unreadCount = Math.max(0, this.unreadCount - 1);
-        
-        // Call API to update server
-        if (notification.id) {
-          const token = sessionStorage.getItem('token');
-          if (token) {
-            fetch(`http://localhost:8085/api/notifications/${notification.id}/read`, {
-              method: 'PATCH',
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            .catch(error => {
-              console.error('Error marking notification as read:', error);
-              // Roll back UI update if failed
-              this.notifications[index].read = false;
-              this.unreadCount++;
-            });
-          }
-        }
-      }
     },
-    markAllAsRead() {
-      // Update UI immediately
-      this.notifications.forEach(notification => {
-        notification.read = true;
-      });
-      this.unreadCount = 0;
+
+    formatTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
       
-      // Call API to update server
-      const token = sessionStorage.getItem('token');
-      if (token) {
-        const userId = this.getUserIdFromToken(token);
-        
-        if (userId) {
-          // Mark all as read for this specific user
-          fetch(`http://localhost:8085/api/notifications/read-all/by-user/${userId}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          .catch(error => {
-            console.error('Error marking all notifications as read:', error);
-          });
-        } else {
-          // Mark all as read for this user type
-          fetch(`http://localhost:8085/api/notifications/read-all/by-type/${this.userType}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          .catch(error => {
-            console.error('Error marking all notifications as read:', error);
-          });
-        }
+      // Less than 1 minute
+      if (diff < 60000) {
+        return 'Just now';
       }
-    },
-    addNotification(notification) {
-      this.notifications.unshift({
-        ...notification,
-        read: false,
-        time: new Date()
+      // Less than 1 hour
+      if (diff < 3600000) {
+        const minutes = Math.floor(diff / 60000);
+        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      }
+      // Less than 24 hours
+      if (diff < 86400000) {
+        const hours = Math.floor(diff / 3600000);
+        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      }
+      // More than 24 hours
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
-      this.unreadCount++;
     },
-    formatTime(time) {
-      const date = new Date(time);
-      return date.toLocaleString();
-    },
+
     getNotificationIcon(type) {
       const icons = {
-        'payment': 'bi bi-credit-card',
-        'order': 'bi bi-bag',
-        'stock': 'bi bi-box',
-        'error': 'bi bi-exclamation-circle text-danger',
-        'warning': 'bi bi-exclamation-triangle text-warning',
-        'info': 'bi bi-info-circle text-info'
+        payment: 'bi bi-credit-card',
+        order: 'bi bi-bag',
+        stock: 'bi bi-box',
+        error: 'bi bi-exclamation-circle',
+        warning: 'bi bi-exclamation-triangle',
+        info: 'bi bi-info-circle',
+        system: 'bi bi-hdd-network',
+        admin: 'bi bi-shield-check'
       };
       return icons[type] || 'bi bi-bell';
-    },    loadDemoNotifications() {
-      // Fetch notifications from server
-      const token = sessionStorage.getItem('token');
-      if (!token) return;
-      
-      // Get the user ID from token (would normally be extracted from decoded token)
-      const userId = this.getUserIdFromToken(token);
-      
-      // First try to load notifications for specific user if we have a user ID
-      if (userId) {
-        fetch(`http://localhost:8085/api/notifications/unread/by-user/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            data.forEach(notification => {
-              this.notifications.unshift({
-                ...notification,
-                time: new Date(notification.timestamp)
-              });
-            });
-            this.unreadCount = data.filter(n => !n.read).length;
-            return; // Exit if we got user-specific notifications
-          }
-          
-          // If no user-specific notifications, load by user type
-          return fetch(`http://localhost:8085/api/notifications/unread/by-type/${this.userType}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-        })
-        .then(response => response && response.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            data.forEach(notification => {
-              this.notifications.unshift({
-                ...notification,
-                time: new Date(notification.timestamp)
-              });
-            });
-            this.unreadCount = data.filter(n => !n.read).length;
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching notifications:', error);
-          // Fall back to demo notifications if API is not available
-          this.loadFallbackNotifications();
-        });
-      } else {
-        // No user ID, try to fetch by user type
-        fetch(`http://localhost:8085/api/notifications/unread/by-type/${this.userType}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            data.forEach(notification => {
-              this.notifications.unshift({
-                ...notification,
-                time: new Date(notification.timestamp)
-              });
-            });
-            this.unreadCount = data.filter(n => !n.read).length;
-          } else {
-            // No notifications from server, load fallbacks
-            this.loadFallbackNotifications();
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching notifications:', error);
-          // Fall back to demo notifications if API is not available
-          this.loadFallbackNotifications();
-        });
-      }
     },
-    
-    loadFallbackNotifications() {
-      // Add some demo notifications based on user type
-      if (this.userType === 'admin') {
-        this.addNotification({
-          type: 'error',
-          title: 'Payment Failed',
-          message: 'Order #1234 payment has failed'
-        });
-        this.addNotification({
-          type: 'error',
-          title: 'System Error',
-          message: 'Order_Service_Error: Database connection failed'
-        });
-      } else if (this.userType === 'seller') {
-        this.addNotification({
-          type: 'order',
-          title: 'New Order',
-          message: 'You have received a new order #1234'
-        });
-        this.addNotification({
-          type: 'stock',
-          title: 'Low Stock',
-          message: 'Chicken Pasta is running low on stock'
-        });
-      } else if (this.userType === 'customer') {
-        this.addNotification({
-          type: 'order',
-          title: 'Order Confirmed',
-          message: 'Your order #1234 has been confirmed'
-        });
-        this.addNotification({
-          type: 'payment',
-          title: 'Payment Successful',
-          message: 'Your payment of $24.99 has been processed'
-        });
-      }
+
+    getNotificationClass(type) {
+      const classes = {
+        error: 'notification-error',
+        warning: 'notification-warning',
+        info: 'notification-info',
+        system: 'notification-system',
+        admin: 'notification-admin',
+        stock: 'notification-stock',
+        order: 'notification-order',
+        payment: 'notification-payment'
+      };
+      return classes[type] || '';
     },
-    
-    getUserIdFromToken(token) {
-      try {
-        // Extract the payload from the JWT token (without verification)
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        
-        const payload = JSON.parse(jsonPayload);
-        return payload.userId || payload.sub || null;
-      } catch (e) {
-        console.error('Error decoding token:', e);
-        return null;
+
+    showBrowserNotification(notification) {
+      if (!('Notification' in window)) return;
+      
+      if (Notification.permission === 'granted') {
+        new Notification(notification.title, {
+          body: notification.message,
+          icon: '/favicon.ico'
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.message,
+              icon: '/favicon.ico'
+            });
+          }
+        });
       }
     }
   }
@@ -335,40 +398,44 @@ export default {
   top: -5px;
   right: -5px;
   font-size: 0.7rem;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
 }
 
 .notification-dropdown {
   position: absolute;
-  top: 100%;
-  right: 0;
-  width: 320px;
+  top: calc(100% + 10px);
+  right: -10px;
+  width: 360px;
   background-color: white;
   border-radius: 8px;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   overflow: hidden;
-  max-height: 400px;
 }
 
 .notification-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
+  padding: 12px 16px;
   border-bottom: 1px solid #eee;
   background-color: #f8f9fa;
 }
 
 .notification-body {
-  max-height: 350px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
 .notification-item {
   display: flex;
-  padding: 12px 15px;
+  padding: 12px 16px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .notification-item:hover {
@@ -382,34 +449,86 @@ export default {
 .notification-icon {
   margin-right: 12px;
   display: flex;
-  align-items: center;
-  font-size: 1.2rem;
+  align-items: flex-start;
+  padding-top: 2px;
 }
 
 .notification-content {
   flex: 1;
+  min-width: 0;
 }
 
 .notification-title {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: 4px;
+  color: #2c3e50;
 }
 
 .notification-message {
   font-size: 0.85rem;
   color: #666;
+  margin-bottom: 4px;
+  word-wrap: break-word;
 }
 
 .notification-time {
   font-size: 0.75rem;
   color: #999;
-  margin-top: 4px;
 }
 
 .no-notifications {
-  padding: 20px 15px;
+  padding: 32px 16px;
   text-align: center;
-  color: #888;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Notification type specific styles */
+.notification-error .notification-icon i {
+  color: #dc3545;
+}
+
+.notification-warning .notification-icon i {
+  color: #ffc107;
+}
+
+.notification-info .notification-icon i {
+  color: #0dcaf0;
+}
+
+.notification-system .notification-icon i {
+  color: #6610f2;
+}
+
+.notification-admin .notification-icon i {
+  color: #198754;
+}
+
+.notification-stock .notification-icon i {
+  color: #fd7e14;
+}
+
+.notification-order .notification-icon i {
+  color: #0d6efd;
+}
+
+.notification-payment .notification-icon i {
+  color: #20c997;
+}
+
+/* Transition animations */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>

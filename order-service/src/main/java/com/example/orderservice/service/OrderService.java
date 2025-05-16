@@ -54,8 +54,10 @@ public class OrderService {
                         double totalPrice = Double.parseDouble(parts[2]);
                         System.out.println("Processing order: " + orderId + ", inStock: " + inStock + ", totalPrice: " + totalPrice);
                         processOrder(orderId, inStock, totalPrice);
-                    } catch (NumberFormatException e) {
+                    } catch (NumberFormatException | InterruptedException e) {
                         System.err.println("Error parsing message: " + message + " - " + e.getMessage());
+                        // Log error to admin
+                        notificationSender.sendLogMessage("Order", "Error", "Error parsing stock confirmation: " + e.getMessage());
                     }
                 } else {
                     System.err.println("Invalid message format: " + message);
@@ -165,7 +167,7 @@ public class OrderService {
     }
 
 
-    private void processOrder(Long orderId, boolean inStock, double totalPrice) {
+    private void processOrder(Long orderId, boolean inStock, double totalPrice) throws InterruptedException {
         if (orderId == null) {
             System.err.println("Cannot process order: orderId is null");
             notificationSender.sendLogMessage("Order", "Error", "Cannot process order: orderId is null");
@@ -191,18 +193,21 @@ public class OrderService {
         if (inStock && orderTotal >= MINIMUM_CHARGE) {
             order.setStatus(OrderStatus.BEING_DELIVERED);
             // Proceed with payment (mock implementation)
-            sendOrderConfirmation(order, true);
+            //sendOrderConfirmation(order, true);
+            // after 10 seconds, make order delivered
+            Thread.sleep(10000);
+             order.setStatus(OrderStatus.DELIVERED);
 
             // Send notifications
             notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
         } else {
             order.setStatus(OrderStatus.CANCELED);
             // Rollback actions (mock implementation)
-            sendOrderConfirmation(order, false);
+            //sendOrderConfirmation(order, false);
 
-            String reason = !inStock ? "out of stock" :
-                    ("minimum charge not met - order total: $" + orderTotal +
-                            ", minimum required: $" + MINIMUM_CHARGE);
+//            String reason = !inStock ? "out of stock" :
+//                    ("minimum charge not met - order total: $" + orderTotal +
+//                            ", minimum required: $" + MINIMUM_CHARGE);
 
             // Send notifications
             if (!inStock) {
@@ -228,23 +233,15 @@ public class OrderService {
 //        }
 //    }
 
-    private void sendOrderConfirmation(Order order, boolean success) {
-        try {
-            String message = "Order " + order.getId() + " " + (success ? "confirmed" : "canceled");
-            rabbitMQConfig.getChannel().basicPublish("",
-                    RabbitMQConfig.ORDER_CONFIRMATION_QUEUE,  // Use the correct queue
-                    null,
-                    message.getBytes(StandardCharsets.UTF_8));
-
-            // Log the event
-            if (!success) {
-                notificationSender.sendLogMessage("Order", "Info", message);
-            }
-        } catch (IOException e) {
-            notificationSender.sendLogMessage("Order", "Error", "Failed to send order confirmation: " + e.getMessage());
-            throw new RuntimeException("Failed to send order confirmation", e);
-        }
-    }
+//    private void sendOrderConfirmation(Order order, boolean success) {
+//        String message = order.getId() + ":" + (success ? "confirmed" : "canceled") + ":" + order.getUserId();
+//        if (success) {
+//            notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
+//        } else {
+//            notificationSender.sendOrderConfirmation(order.getId(), "canceled", order.getUserId());
+//            notificationSender.sendLogMessage("Order", "Info", message);
+//        }
+//    }
 
 
 

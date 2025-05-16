@@ -45,26 +45,4 @@ public class NotificationController {
     public String health() {
         return "Notification service is up and running!";
     }
-    
-    /**
-     * Test endpoint to send a notification
-     */
-    @GetMapping("/test-notification")
-    @ResponseBody
-    public String sendTestNotification() {
-        // Send test notifications to each user type
-        notificationService.sendToAdmins(
-            new Notification("info", "Test Notification", 
-                "This is a test admin notification", "admin"));
-        
-        notificationService.sendToSellers(
-            new Notification("order", "Test Order", 
-                "This is a test seller notification", "seller"));
-        
-        notificationService.sendToCustomers(
-            new Notification("payment", "Test Payment", 
-                "This is a test customer notification", "customer"));
-        
-        return "Test notifications sent!";
-    }
 }

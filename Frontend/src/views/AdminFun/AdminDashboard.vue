@@ -51,6 +51,13 @@ export default {
   components: {
     NotificationBell
   },
+  mounted() {
+    // Expose the notification bell component globally for testing
+    if (window) {
+      window.adminNotificationBell = this.$refs.notificationBell;
+      console.log('Admin notification bell exposed as window.adminNotificationBell');
+    }
+  },
   computed: {
     ...mapGetters(['currentUser']),
     user() {

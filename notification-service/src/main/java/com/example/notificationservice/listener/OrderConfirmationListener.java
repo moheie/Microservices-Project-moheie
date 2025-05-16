@@ -16,28 +16,28 @@ public class OrderConfirmationListener {
         this.notificationService = notificationService;
     }
     
-    @RabbitListener(queues = "order-confirmation")
+    @RabbitListener(queues = "user-order-confirmation")
     public void handleOrderConfirmation(String message) {
         System.out.println("Order Confirmation: " + message);
         
-        // Parse the message - expecting format: "orderId:status:userId"
+        // Parse the message - expecting format: "orderId:status:userId" from NotificationSender.sendOrderConfirmation
         String[] parts = message.split(":");
-        if (parts.length >= 2) {
-            String orderId = parts[0];
-            String status = parts[1];
-            Long userId = parts.length > 2 ? Long.parseLong(parts[2]) : null;
-            
-            // Send notification to customer if we have a user ID
-            if (userId != null) {
+        if (parts.length >= 3) {
+            try {
+                Long orderId = Long.parseLong(parts[0]);
+                String status = parts[1];
+                Long userId = Long.parseLong(parts[2]);
+                
+                // Send notification to customer
                 Notification customerNotification = notificationService.createOrderStatusNotification(
-                        orderId, status, userId);
+                    orderId.toString(), status, userId);
                 notificationService.sendToUser(customerNotification, userId);
+                
+            } catch (NumberFormatException e) {
+                System.err.println("Error parsing order confirmation message: " + e.getMessage());
             }
-            
-            // Send notification to seller
-            Notification sellerNotification = notificationService.createSellerOrderNotification(
-                    orderId, status);
-            notificationService.sendToSellers(sellerNotification);
+        } else {
+            System.err.println("Invalid order confirmation message format: " + message);
         }
     }
 }

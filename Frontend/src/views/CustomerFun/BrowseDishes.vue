@@ -47,7 +47,8 @@ export default {
               dishPrice: dish.price,
               companyName: dish.companyName
             }
-          }
+          },
+          alert('Item added to cart successfully!')
         );
       } catch (err) {
         console.error('Error adding to cart:', err);

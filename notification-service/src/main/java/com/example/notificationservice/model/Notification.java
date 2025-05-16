@@ -26,9 +26,6 @@ public class Notification {
     @Column(nullable = false)
     private LocalDateTime timestamp;
     
-    @Column(nullable = false)
-    private String userType;
-    
     private Long userId;
     
     @Column(nullable = false)
@@ -40,16 +37,15 @@ public class Notification {
         this.read = false;
     }
     
-    public Notification(String type, String title, String message, String userType) {
+    public Notification(String type, String title, String message) {
         this();
         this.type = type;
         this.title = title;
         this.message = message;
-        this.userType = userType;
     }
     
-    public Notification(String type, String title, String message, String userType, Long userId) {
-        this(type, title, message, userType);
+    public Notification(String type, String title, String message, Long userId) {
+        this(type, title, message);
         this.userId = userId;
     }
 
@@ -91,14 +87,6 @@ public class Notification {
 
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
-    }
-
-    public String getUserType() {
-        return userType;
-    }
-
-    public void setUserType(String userType) {
-        this.userType = userType;
     }
 
     public Long getUserId() {
