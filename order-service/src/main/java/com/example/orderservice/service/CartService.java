@@ -53,15 +53,6 @@ public class CartService implements Serializable {
         return this.currentCart;
     }
 
-    public void addProductToCart(Long productId) {
-        if (this.currentCart == null) {
-            throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
-        }
-
-        this.currentCart.addProductId(productId);
-        this.isDirty = true;
-    }
-
     public void addProductsToCart(Long productId, int quantity, String dishName, double dishPrice, String companyName) {
         if (this.currentCart == null) {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
@@ -69,12 +60,21 @@ public class CartService implements Serializable {
 
         forceRefreshCart();
 
-        // Add the specified quantity
-        for (int i = 0; i < quantity; i++) {
-            // Add to productIds for backward compatibility
-            this.currentCart.addProductId(productId);
+        // Check if dish already exists in cart
+        boolean dishExists = false;
+        for (OrderDish dish : this.currentCart.getDishes()) {
+            if (dish.getDishId().equals(productId)) {
+                // Update quantity if dish already exists
+                dish.setQuantity(dish.getQuantity() + quantity);
+                dishExists = true;
+                break;
+            }
+        }
 
-            this.currentCart.addDish(new OrderDish(productId, dishName, companyName, dishPrice));
+        // If dish doesn't exist, add new one
+        if (!dishExists) {
+            OrderDish newDish = new OrderDish(productId, dishName, companyName, dishPrice, quantity);
+            this.currentCart.addDish(newDish);
         }
 
         this.isDirty = true;
@@ -86,14 +86,10 @@ public class CartService implements Serializable {
         }
 
         forceRefreshCart();
-
-        this.currentCart.removeProductId(productId);
         this.currentCart.removeDish(productId);
-
         this.isDirty = true;
     }
 
-    //update dish from cart (only the quantity)
     public void updateDishInCart(Long productId, int quantity) {
         if (this.currentCart == null) {
             throw new IllegalStateException("Cart not initialized. Call initializeCart first.");
@@ -121,7 +117,6 @@ public class CartService implements Serializable {
 
     public void clearCart() {
         if (this.currentCart != null) {
-            this.currentCart.getProductIds().clear();
             this.currentCart.getDishes().clear();
             this.isDirty = true;
         }

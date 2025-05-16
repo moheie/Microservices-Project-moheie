@@ -33,6 +33,16 @@ public class OrderConfirmationListener {
                     orderId.toString(), status, userId);
                 notificationService.sendToUser(customerNotification, userId);
 
+                // If order status is "Failed", send a log message to admin
+                if ("Failed".equalsIgnoreCase(status)) {
+                    notificationService.sendLogMessage(
+                        "Order",
+                        "Error",
+                        String.format("Order %s has failed for user %d", orderId, userId),
+                        1L
+                    );
+                }
+
                 Notification AdminNotification = notificationService.createOrderStatusNotification(
                     orderId.toString(), status, 1L); // Assuming 1L is the admin user ID
                 notificationService.sendToUser(AdminNotification, 1L);

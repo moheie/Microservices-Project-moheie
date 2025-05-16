@@ -2,6 +2,8 @@ package com.example.orderservice.service;
 
 import com.example.orderservice.config.RabbitMQConfig;
 import com.example.orderservice.dto.CompanyOrderDTO;
+import com.example.orderservice.dto.StockCheckRequest;
+import com.example.orderservice.dto.StockConfirmationResponse;
 import com.example.orderservice.messaging.NotificationSender;
 import com.example.orderservice.model.Cart;
 import com.example.orderservice.model.Order;
@@ -9,11 +11,14 @@ import com.example.orderservice.model.OrderDish;
 import com.example.orderservice.model.OrderStatus;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.utils.Jwt;
+import com.fasterxml.jackson.databind.ObjectMapper;
+// Remove this import since we'll use the one from RabbitMQConfig
+// import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.rabbitmq.client.DeliverCallback;
 import jakarta.annotation.PostConstruct;
-import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -41,201 +46,226 @@ public class OrderService {
     @PostConstruct
     public void setupConsumer() {
         try {
-            System.out.println("Setting up consumer for queue: " + RabbitMQConfig.STOCK_CONFIRMATION_QUEUE);
+            System.out.println("\u001B[33m Setting up consumer for queue: " + RabbitMQConfig.STOCK_CONFIRMATION_QUEUE + " \u001B[0m");
+
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
-                System.out.println("Received message: " + message);
+                System.out.println("\u001B[34m Received stock confirmation message: " + message + " \u001B[0m");
 
-                String[] parts = message.split(":");
-                if (parts.length == 3) {
-                    try {
-                        Long orderId = Long.valueOf(parts[0]);
-                        boolean inStock = Boolean.parseBoolean(parts[1]);
-                        double totalPrice = Double.parseDouble(parts[2]);
-                        System.out.println("Processing order: " + orderId + ", inStock: " + inStock + ", totalPrice: " + totalPrice);
-                        processOrder(orderId, inStock, totalPrice);
-                    } catch (NumberFormatException | InterruptedException e) {
-                        System.err.println("Error parsing message: " + message + " - " + e.getMessage());
-                        // Log error to admin
-                        notificationSender.sendLogMessage("Order", "Error", "Error parsing stock confirmation: " + e.getMessage());
-                    }
-                } else {
-                    System.err.println("Invalid message format: " + message);
+                try {
+                    // Parse the JSON message to extract confirmation details
+                    StockConfirmationResponse response = rabbitMQConfig.getObjectMapper()
+                            .readValue(message, StockConfirmationResponse.class);
+
+                    System.out.println("\u001B[34m Parsed stock confirmation - Order ID: " +
+                            response.getOrderId() + ", In stock: " + response.isInStock() +
+                            ", Total price: $" + response.getTotalPrice() + " \u001B[0m");
+
+                    // Process the order based on stock confirmation
+                    processOrder(response.getOrderId(), response.isInStock(), response.getTotalPrice());
+                } catch (Exception e) {
+                    System.err.println("\u001B[31m Failed to process stock confirmation: " + e.getMessage() + " \u001B[0m");
+                    e.printStackTrace();
                 }
             };
 
             rabbitMQConfig.getChannel().basicConsume(
                     RabbitMQConfig.STOCK_CONFIRMATION_QUEUE,
-                    true,
+                    true,  // auto-acknowledge
                     deliverCallback,
-                    consumerTag -> {}
-            );
+                    consumerTag -> {
+                        System.err.println("\u001B[31m Consumer cancelled: " + consumerTag + " \u001B[0m");
+                    });
+
+            System.out.println("\u001B[32m Stock confirmation consumer registered successfully \u001B[0m");
         } catch (IOException e) {
-            System.err.println("Failed to set up RabbitMQ consumer: " + e.getMessage());
+            System.err.println("\u001B[31m Failed to set up RabbitMQ consumer: " + e.getMessage() + " \u001B[0m");
             throw new RuntimeException("Failed to set up RabbitMQ consumer", e);
         }
     }
 
     public Order createOrderFromCart(String token) {
-        Long userId = Jwt.getUserId(token);
-        cartService.initializeCart(token);
-        Cart cart = cartService.getCurrentCart();
+        try {
+            Long userId = Jwt.getUserId(token);
 
-        if (cart.getProductIds().isEmpty() && cart.getDishes().isEmpty()) {
-            throw new IllegalStateException("Cannot create order from empty cart");
-        }
+            // Initialize cart if not already initialized
+            cartService.initializeCart(token);
+            Cart cart = cartService.getCurrentCart();
 
-        Order order = new Order();
-        order.setUserId(userId);
+            // Check if cart is empty
+            if (cart.getDishes() == null || cart.getDishes().isEmpty()) {
+                throw new IllegalStateException("Cannot create an order from an empty cart");
+            }
 
-        // Transfer product IDs (for backward compatibility)
-        order.setProductIds(new ArrayList<>(cart.getProductIds()));
+            // Create new order from cart
+            Order order = new Order();
+            order.setUserId(userId);
+            order.setStatus(OrderStatus.PENDING);
+            order.setCreatedAt(LocalDateTime.now());
 
-        // Transfer full dish information
-        if (cart.getDishes() != null && !cart.getDishes().isEmpty()) {
-            // Create new OrderDish objects to avoid reference issues
+            // Copy dishes from cart to order
             List<OrderDish> orderDishes = new ArrayList<>();
             for (OrderDish dish : cart.getDishes()) {
-                OrderDish newDish = new OrderDish(
+                OrderDish orderDish = new OrderDish(
                         dish.getDishId(),
                         dish.getName(),
                         dish.getCompanyName(),
                         dish.getPrice(),
                         dish.getQuantity()
                 );
-                orderDishes.add(newDish);
+                orderDishes.add(orderDish);
             }
             order.setDishes(orderDishes);
-        } else {
-            // For backward compatibility where only productIds exist but no dishes
-            List<OrderDish> placeholderDishes = new ArrayList<>();
-            for (Long productId : cart.getProductIds()) {
-                // Create a placeholder dish with minimal info
-                OrderDish dish = new OrderDish(productId, "Product " + productId, "Unknown", 0.0);
-                placeholderDishes.add(dish);
+
+            // Calculate cart total before proceeding
+            double cartTotal = calculateCartTotal(cart);
+
+            // Save order to database to get ID
+            order = orderRepository.save(order);
+
+            // Check minimum charge requirement before sending stock check
+            if (cartTotal < MINIMUM_CHARGE) {
+                // Set order status to CANCELED instead of throwing an exception
+                order.setStatus(OrderStatus.CANCELED);
+                order = orderRepository.save(order);
+
+                // Notify user about cancellation due to minimum charge requirement
+//                notificationSender.sendUserNotification(
+//                        userId,
+//                        "Order Canceled",
+//                        "Your order #" + order.getId() + " was canceled because the total ($" +
+//                                cartTotal + ") does not meet the minimum order requirement of $" + MINIMUM_CHARGE
+//                );
+//
+//                // Log the cancellation
+//                notificationSender.sendAdminLog("Order", "Warning",
+//                        "Order #" + order.getId() + " was canceled due to not meeting minimum charge requirement"
+//                );
+
+                // Clear cart after order creation
+                cartService.clearCart();
+                cartService.persistCart();
+
+                return order;
             }
-            order.setDishes(placeholderDishes);
+
+            // Only check product stock if minimum charge is met
+            checkProductStock(order);
+
+            // Clear cart after order creation
+            cartService.clearCart();
+            cartService.persistCart();
+
+            return order;
+        } catch (Exception e) {
+            System.err.println("\u001B[31m Error creating order from cart: " + e.getMessage() + " \u001B[0m");
+
+            // Log the error to admin log queue
+            try {
+                //notificationSender.sendAdminLog("Order", "Error",
+                        //"Failed to create order: " + e.getMessage());
+            } catch (Exception logError) {
+                System.err.println("\u001B[31m Failed to log order creation error: " + logError.getMessage() + " \u001B[0m");
+            }
+
+            throw new RuntimeException("Failed to create order: " + e.getMessage(), e);
         }
-
-        order.setStatus(OrderStatus.PENDING);
-        order.setCreatedAt(LocalDateTime.now());
-
-        order = orderRepository.save(order);
-
-        // Send message to check stock
-        checkProductStock(order);
-
-        // Clear the cart after creating the order
-        cartService.clearCart();
-        cartService.persistCart(); // Persist the empty cart to database
-
-        return order;
     }
 
 
+    private double calculateCartTotal(Cart cart) {
+        double total = 0.0;
+        for (OrderDish dish : cart.getDishes()) {
+            total += dish.getPrice() * dish.getQuantity();
+        }
+        return total;
+    }
     private void checkProductStock(Order order) {
         try {
-            StringBuilder messageBuilder = new StringBuilder();
-            messageBuilder.append(order.getId()).append(":");
+            // Create a map of product IDs to quantities
+            Map<Long, Integer> productQuantities = new HashMap<>();
 
-            boolean first = true;
-            // Use dishes which have quantities
+            // Populate the map from OrderDish objects
             for (OrderDish dish : order.getDishes()) {
-                Long productId = dish.getDishId();
-                int quantity = dish.getQuantity();
-
-                // Repeat the product ID based on quantity
-                for (int i = 0; i < quantity; i++) {
-                    if (!first) {
-                        messageBuilder.append(",");
-                    }
-                    messageBuilder.append(productId);
-                    first = false;
-                }
+                productQuantities.put(dish.getDishId(), dish.getQuantity());
             }
 
-            String message = messageBuilder.toString();
-            System.out.println("Sending stock check message: " + message);
+            // Create request object
+            StockCheckRequest stockCheckRequest = new StockCheckRequest(order.getId(), productQuantities);
 
-            rabbitMQConfig.getChannel().basicPublish("",
-                    RabbitMQConfig.ORDER_STOCK_CHECK_QUEUE,
+            System.out.println("\u001B[34m === PREPARING STOCK CHECK REQUEST === \u001B[0m");
+            System.out.println("\u001B[34m Order ID: " + order.getId() + " \u001B[0m");
+            System.out.println("\u001B[34m Products: " + productQuantities + " \u001B[0m");
+
+            // Convert request to JSON using the ObjectMapper from RabbitMQConfig
+            String jsonRequest = rabbitMQConfig.getObjectMapper().writeValueAsString(stockCheckRequest);
+
+            // Send to RabbitMQ queue
+            rabbitMQConfig.getChannel().basicPublish(
+                    "",  // Default exchange
+                    RabbitMQConfig.ORDER_STOCK_CHECK_QUEUE,  // Queue name
                     null,
-                    message.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to send stock check message", e);
+                    jsonRequest.getBytes(StandardCharsets.UTF_8)
+            );
+
+            System.out.println("\u001B[34m === STOCK CHECK REQUEST SENT === \u001B[0m");
+
+        } catch (Exception e) {
+            System.err.println("\u001B[31m Error sending stock check request: " + e.getMessage() + " \u001B[0m");
+            e.printStackTrace();
+
+            // Log the error to admin log queue
+            try {
+                //notificationSender.sendAdminLog("Order", "Error",
+                        //"Failed to check product stock for order " + order.getId() + ": " + e.getMessage());
+            } catch (Exception logError) {
+                System.err.println("Failed to send error log: " + logError.getMessage());
+            }
+
+            throw new RuntimeException("Failed to check product stock", e);
         }
     }
-
 
     private void processOrder(Long orderId, boolean inStock, double totalPrice) throws InterruptedException {
-        if (orderId == null) {
-            System.err.println("Cannot process order: orderId is null");
-            notificationSender.sendLogMessage("Order", "Error", "Cannot process order: orderId is null");
-            return;
-        }
-
         Order order = orderRepository.findById(orderId);
+
         if (order == null) {
-            System.err.println("Order not found with id: " + orderId);
-            notificationSender.sendLogMessage("Order", "Error", "Order not found with id: " + orderId);
+            System.err.println("\u001B[31m Order not found with ID: " + orderId + " \u001B[0m");
             return;
         }
 
-        // Calculate total from order dishes instead of relying on product service
-        double orderTotal = order.getDishes().stream()
-                .mapToDouble(dish -> dish.getPrice() * dish.getQuantity())
-                .sum();
+        System.out.println("\u001B[34m Processing order " + orderId + " - In stock: " + inStock + " - Total price: $" + totalPrice + " \u001B[0m");
 
-        System.out.println("Order " + orderId + " processing: inStock=" + inStock +
-                ", calculated total=" + orderTotal +
-                ", product service total=" + totalPrice);
+        if (inStock) {
+            // If price is too low, cancel order
+            if (totalPrice < MINIMUM_CHARGE) {
+                order.setStatus(OrderStatus.CANCELED);
+                orderRepository.save(order);
+                System.out.println("\u001B[33m Order " + orderId + " canceled: Below minimum charge \u001B[0m");
 
-        if (inStock && orderTotal >= MINIMUM_CHARGE) {
-            order.setStatus(OrderStatus.BEING_DELIVERED);
-
-            Thread.sleep(10000);
-            order.setStatus(OrderStatus.DELIVERED);
-
-            // Send notifications
-            notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
-        } else {
-            order.setStatus(OrderStatus.CANCELED);
-
-            // Send notifications
-            if (!inStock) {
-                notificationSender.sendLogMessage("Order", "Warning",
-                        "Order " + orderId + " canceled: Products not in stock");
-                notificationSender.sendOrderConfirmation(order.getId(), "canceled - out of stock", order.getUserId());
+                // Send notification to user about order cancellation
+                // TODO : yousfi
+                //notificationSender.sendOrderBelowMinimumNotification(order.getUserId(), MINIMUM_CHARGE);
             } else {
-                notificationSender.sendLogMessage("Order", "Warning",
-                        "Order " + orderId + " canceled: Minimum charge not met");
-                notificationSender.sendPaymentFailure(order.getId(), "Minimum charge of $" + MINIMUM_CHARGE + " not met");
-                notificationSender.sendOrderConfirmation(order.getId(), "canceled - minimum charge not met", order.getUserId());
+                // Update to being delivered
+                order.setStatus(OrderStatus.BEING_DELIVERED);
+                orderRepository.save(order);
+                System.out.println("\u001B[32m Order " + orderId + " updated to BEING_DELIVERED \u001B[0m");
+
+                // Send notification to user about successful order
+                notificationSender.sendOrderConfirmation(order.getUserId(), "Your order is being processed", orderId);
             }
+        } else {
+            // Not enough stock, cancel order
+            order.setStatus(OrderStatus.CANCELED);
+            orderRepository.save(order);
+            System.out.println("\u001B[33m Order " + orderId + " canceled: Insufficient stock \u001B[0m");
+
+            // Send notification to user about stock issue
+            // TODO : yousfi
+            //notificationSender.sendInsufficientStockNotification(order.getUserId(), orderId);
         }
-
-        orderRepository.save(order);
     }
-
-//    public void updateOrderStatus(Long orderId, boolean productsInStock) {
-//        Order order = orderRepository.findById(orderId);
-//        if (order != null) {
-//            order.setStatus(productsInStock ? OrderStatus.BEING_DELIVERED : OrderStatus.CANCELED);
-//            orderRepository.save(order);
-//        }
-//    }
-
-//    private void sendOrderConfirmation(Order order, boolean success) {
-//        String message = order.getId() + ":" + (success ? "confirmed" : "canceled") + ":" + order.getUserId();
-//        if (success) {
-//            notificationSender.sendOrderConfirmation(order.getId(), "confirmed", order.getUserId());
-//        } else {
-//            notificationSender.sendOrderConfirmation(order.getId(), "canceled", order.getUserId());
-//            notificationSender.sendLogMessage("Order", "Info", message);
-//        }
-//    }
-
-
 
     public Order getOrder(Long orderId) {
         return orderRepository.findById(orderId);
@@ -245,36 +275,15 @@ public class OrderService {
         String companyName = Jwt.getCompany(token);
 
         if (companyName == null || companyName.isEmpty()) {
-            throw new SecurityException("No company associated with this token");
+            throw new SecurityException("Only company users can access company orders");
         }
 
         return orderRepository.findByCompanyName(companyName);
     }
 
-
-//    public void cancelOrder(String token, Long orderId) {
-//        Long userId = Jwt.getUserId(token);
-//        Order order = orderRepository.findById(orderId);
-//        if (order == null) {
-//            throw new IllegalStateException("Order not found");
-//        }
-//        if (!order.getUserId().equals(userId)) {
-//            throw new IllegalStateException("You cannot cancel this order");
-//        }
-//        if (order.getStatus() != OrderStatus.PENDING) {
-//            throw new IllegalStateException("Order cannot be canceled");
-//        }
-//        if (order.getStatus() == OrderStatus.CANCELED) {
-//            throw new IllegalStateException("Order already canceled");
-//        }
-//        order.setStatus(OrderStatus.CANCELED);
-//        orderRepository.save(order);
-//        notificationSender.sendOrderConfirmation(order.getId(), "canceled", order.getUserId());
-//        notificationSender.sendLogMessage("Order", "Info", "Order " + orderId + " canceled");
-//    }
-
     public List<Order> getOrders(String token) {
         Long userId = Jwt.getUserId(token);
         return orderRepository.findByUserId(userId);
     }
+
 }

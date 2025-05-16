@@ -15,73 +15,46 @@ public class PaymentFailureListener {
     @Autowired
     public PaymentFailureListener(NotificationService notificationService) {
         this.notificationService = notificationService;
-    }    @RabbitListener(queues = "#{paymentFailedQueue.name}")
+    }    
+    
+    @RabbitListener(queues = "#{paymentFailedQueue.name}")
     public void handlePaymentFailure(String message) {
         System.out.println("Payment Failure Notification: " + message);
         
         try {
             String orderId;
             String reason;
-            Long customerId = null;
-            
+            // parse expected format: "orderId:reason" or "orderId"
             // Check if the message contains a colon (for any format)
             if (message.contains(":")) {
                 // Split the message
-                String[] parts = message.split(":", 3);
-                
-                // Format: "orderId:userId:reason"
-                if (parts.length >= 3) {                
-                    orderId = parts[0];
-                    try {
-                        customerId = Long.parseLong(parts[1]);
-                    } catch (NumberFormatException e) {
-                        // If userId is not a number, treat as part of reason
-                        reason = parts[1] + ":" + parts[2];
-                        System.out.println("Could not parse userId, treating as part of reason: " + reason);
-                    }
-                    reason = parts[2];
-                } 
+                String[] parts = message.split(":", 2);
+
                 // Format: "orderId:reason"
-                else if (parts.length == 2) {
+                if (parts.length == 2) {
                     orderId = parts[0];
                     reason = parts[1];
-                    System.out.println("Using format 'orderId:reason' - no userId provided");
-                }
-                else {
-                    // Invalid format with colon but not enough parts
-                    orderId = "unknown";
-                    reason = message;
+                    System.out.println("Using format 'orderId:reason'");
+                
+
+            
+                    // Always send notification to admin
+                    Notification adminNotification = notificationService.createPaymentFailedNotification(
+                        orderId, reason, ADMIN_USER_ID);
+                    notificationService.sendToUser(adminNotification, ADMIN_USER_ID);
                 }
             } else {
-                // No colon - treat entire message as the reason
-                orderId = "unknown";
-                reason = message;
+                // Fallback to default format: "orderId"
+                orderId = message;
+                reason = "Payment failed for order ID: " + orderId;
+                System.out.println("Using default format 'orderId'");
+                
+                // Create and send notification to admin
+                Notification adminNotification = notificationService.createPaymentFailedNotification(
+                    orderId, reason, ADMIN_USER_ID);
+                notificationService.sendToUser(adminNotification, ADMIN_USER_ID);
             }
-            
-            // For cases where we couldn't extract a customer ID, use a default
-            if (customerId == null) {
-                // Send notification only to admin, not to a specific customer
-                System.out.println("No valid customer ID found, sending only to admin");
-            } else {
-                // Send notification to the customer
-                Notification customerNotification = notificationService.createPaymentFailedNotification(
-                    orderId, reason, customerId);
-                notificationService.sendToUser(customerNotification, customerId);
-            }
-            
-            // Always send notification to admin
-            Notification adminNotification = notificationService.createPaymentFailedNotification(
-                orderId, reason, ADMIN_USER_ID);
-            notificationService.sendToUser(adminNotification, ADMIN_USER_ID);
-            
-            // Log this as an error (will be routed to admins via log exchange)
-            String customerInfo = customerId != null ? " (Customer ID: " + customerId + ")" : "";
-            notificationService.sendLogMessage(
-                "Payment",
-                "Error",
-                "Payment failed for order " + orderId + customerInfo + ": " + reason,
-                ADMIN_USER_ID
-            );
+
         } catch (Exception e) {
             System.err.println("Error processing payment failure notification: " + e.getMessage());
             e.printStackTrace();

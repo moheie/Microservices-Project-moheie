@@ -269,22 +269,55 @@ export default {
         timestamp: notification.timestamp || new Date().toISOString()
       };
       
-      // Parse RabbitMQ admin log messages (e.g., "Order_Error: Some message")
+      // Parse message formats from our backend listeners
       if (notification.message && notification.message.includes(':')) {
         try {
-          const parts = notification.message.split(':', 2);
-          if (parts.length >= 2) {
-            const serviceInfo = parts[0];
-            const logMessage = parts[1].trim();
+          const parts = notification.message.split(':');
+          
+          // StockCheckListener format: "productName:quantity:sellerCompanyName:sellerId"
+          if (parts.length === 4) {
+            const productName = parts[0];
+            const quantity = parseInt(parts[1]);
+            const sellerCompanyName = parts[2];
             
-            // Extract service info if available (e.g., "Order_Error")
-            if (serviceInfo.includes('_')) {
-              const serviceInfoParts = serviceInfo.split('_');
-              if (serviceInfoParts.length >= 2) {
-                processedNotification.serviceName = processedNotification.serviceName || serviceInfoParts[0];
-                processedNotification.severity = processedNotification.severity || serviceInfoParts[1];
-                processedNotification.message = logMessage;
-              }
+            processedNotification.serviceName = 'Stock';
+            processedNotification.severity = quantity < 5 ? 'Error' : 'Warning';
+            processedNotification.message = `Product '${productName}' from ${sellerCompanyName} has ${quantity} units remaining`;
+            processedNotification.title = 'Stock Alert';
+            processedNotification.type = 'stock';
+          }
+          // OrderConfirmationListener format: "orderId:status:userId"
+          else if (parts.length === 3) {
+            const orderId = parts[0];
+            const status = parts[1];
+
+            processedNotification.serviceName = 'Order';
+            processedNotification.severity = status === 'Failed' ? 'Error' : 'Info';
+            processedNotification.message = `Order ${orderId} status: ${status}`;
+            processedNotification.title = 'Order Status Update';
+            processedNotification.type = 'order';
+          }
+          // PaymentFailureListener format: "orderId:userId:reason" or "orderId:reason"
+          else if (parts.length === 2) {
+            let orderId = parts[0];
+            let reason;
+
+            // Format without userId
+            reason = parts.slice(1).join(':');
+            
+            processedNotification.serviceName = 'Payment';
+            processedNotification.severity = 'Error';
+            processedNotification.message = `Payment failed for order ${orderId}: ${reason}`;
+            processedNotification.title = 'Payment Failure';
+            processedNotification.type = 'payment';
+          }
+          // Generic service_severity format (e.g., "Order_Error: Some message")
+          else if (parts[0].includes('_')) {
+            const serviceInfoParts = parts[0].split('_');
+            if (serviceInfoParts.length >= 2) {
+              processedNotification.serviceName = processedNotification.serviceName || serviceInfoParts[0];
+              processedNotification.severity = processedNotification.severity || serviceInfoParts[1];
+              processedNotification.message = parts.slice(1).join(':').trim();
             }
           }
         } catch (error) {
@@ -296,12 +329,13 @@ export default {
       if (notification.type === 'payment' || 
           notification.type === 'PAYMENT_FAILURES' ||
           (notification.title && notification.title.toLowerCase().includes('payment')) ||
-          processedNotification.message?.includes('payment')) {
+          processedNotification.message?.toLowerCase().includes('payment')) {
         
         this.paymentFailures.unshift({
           ...processedNotification, 
           title: processedNotification.title || 'Payment Notification',
-          message: processedNotification.message || 'Payment status update'
+          message: processedNotification.message || 'Payment status update',
+          serviceName: processedNotification.serviceName || 'Payment'
         });
         this.$toast.error(`Payment notification: ${processedNotification.message || processedNotification.title}`);
         return;
@@ -320,23 +354,31 @@ export default {
         return;
       }
       
-      // Error notifications from Stock service
-      if ((processedNotification.serviceName === 'Stock' && processedNotification.severity === 'Error') ||
-          notification.type === 'stock') {
-        
-        this.errorLogs.unshift({
-          ...processedNotification,
-          serviceName: 'Stock',
-          severity: processedNotification.severity || 'Error'
-        });
-        this.$toast.warning(`Stock service alert: ${processedNotification.message}`);
+      // Stock notifications
+      if (processedNotification.serviceName === 'Stock' || notification.type === 'stock') {
+        if (processedNotification.severity === 'Error' || parseInt(processedNotification.message?.split(' ').pop()) < 5) {
+          this.errorLogs.unshift({
+            ...processedNotification,
+            serviceName: 'Stock',
+            severity: 'Error'
+          });
+          this.$toast.error(`Stock alert: ${processedNotification.message}`);
+        } else {
+          // For non-critical stock alerts
+          this.errorLogs.unshift({
+            ...processedNotification,
+            serviceName: 'Stock',
+            severity: processedNotification.severity || 'Warning'
+          });
+          this.$toast.warning(`Stock update: ${processedNotification.message}`);
+        }
         return;
       }
       
       // General error notifications
       if (notification.type === 'error' || 
           notification.type === 'system' ||
-          notification.severity === 'Error') {
+          processedNotification.severity === 'Error') {
         
         this.errorLogs.unshift({
           ...processedNotification,

@@ -41,13 +41,4 @@ public class Cart implements Serializable {
     public void removeDish(Long dishId) {
         this.dishes.removeIf(dish -> dish.getDishId().equals(dishId));
     }
-
-    // For backward compatibility
-    @ElementCollection(fetch = FetchType.EAGER)
-    private List<Long> productIds = new ArrayList<>();
-
-    public List<Long> getProductIds() { return productIds; }
-    public void setProductIds(List<Long> productIds) { this.productIds = productIds; }
-    public void addProductId(Long productId) { this.productIds.add(productId); }
-    public void removeProductId(Long productId) { this.productIds.remove(productId); }
 }

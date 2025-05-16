@@ -1,7 +1,11 @@
 package com.example.product.config;
 
+import com.example.product.dto.StockCheckRequest;
+import com.example.product.dto.StockConfirmationResponse;
 import com.example.product.model.Dish;
 import com.example.product.service.DishService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.rabbitmq.client.DeliverCallback;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -16,17 +20,16 @@ import jakarta.persistence.PersistenceContext;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 @Singleton
 @Startup
 public class RabbitMQConfig {
     private Connection connection;
     private Channel channel;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PersistenceContext(unitName = "product-service")
     private EntityManager entityManager;
@@ -43,6 +46,9 @@ public class RabbitMQConfig {
     @PostConstruct
     public void init() {
         try {
+            // Configure ObjectMapper
+            objectMapper.registerModule(new JavaTimeModule());
+
             ConnectionFactory factory = new ConnectionFactory();
             factory.setHost("localhost");
             factory.setPort(5672);
@@ -69,8 +75,10 @@ public class RabbitMQConfig {
             };
 
             channel.basicConsume(ORDER_STOCK_CHECK_QUEUE, true, deliverCallback, consumerTag -> {});
-            
+
+            System.out.println("\u001B[32m === RABBITMQ CONFIG INITIALIZED SUCCESSFULLY === \u001B[0m");
         } catch (IOException | TimeoutException e) {
+            System.err.println("\u001B[31m Failed to initialize RabbitMQ connection: " + e.getMessage() + " \u001B[0m");
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
         }
     }
@@ -79,19 +87,31 @@ public class RabbitMQConfig {
         return channel;
     }
 
+    public ObjectMapper getObjectMapper() {
+        return objectMapper;
+    }
+
     private void processStockCheckRequest(String message) {
         try {
-            String[] parts = message.split(":");
-            if (parts.length != 2) return;
+            System.out.println("\u001B[34m Received stock check request: " + message + " \u001B[0m");
 
-            Long orderId = Long.valueOf(parts[0]);
-            String[] productIdStrings = parts[1].split(",");
-            List<Long> productIds = Arrays.stream(productIdStrings)
-                    .map(Long::valueOf)
-                    .collect(Collectors.toList());
+            // Parse the message from JSON to StockCheckRequest object
+            StockCheckRequest request = objectMapper.readValue(message, StockCheckRequest.class);
 
-            Map<Long, Long> productCounts = productIds.stream()
-                    .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
+            System.out.println("\u001B[34m Deserialized request: " + request + " \u001B[0m");
+
+            Long orderId = request.getOrderId();
+            Map<Long, Integer> productQuantities = request.getProductQuantities();
+
+            if (orderId == null || productQuantities == null) {
+                throw new IllegalArgumentException("Invalid request format: orderId or productQuantities is null");
+            }
+
+            // Convert to map with Long values
+            Map<Long, Long> productCounts = new HashMap<>();
+            for (Map.Entry<Long, Integer> entry : productQuantities.entrySet()) {
+                productCounts.put(entry.getKey(), entry.getValue().longValue());
+            }
 
             System.out.println("\u001B[35m Processing order: \u001B[0m " + orderId +
                     " with products: " + productCounts);
@@ -99,9 +119,23 @@ public class RabbitMQConfig {
             boolean allInStock = checkStock(productCounts);
             double totalPrice = calculateTotalPrice(productCounts);
 
-            String response = orderId + ":" + allInStock + ":" + totalPrice;
-            channel.basicPublish("", STOCK_CONFIRMATION_QUEUE, null,
-                    response.getBytes(StandardCharsets.UTF_8));
+            // Create response object
+            StockConfirmationResponse response = new StockConfirmationResponse(
+                    orderId,
+                    allInStock,
+                    totalPrice
+            );
+
+            // Serialize to JSON and send
+            String jsonResponse = objectMapper.writeValueAsString(response);
+            System.out.println("\u001B[34m Sending response: " + jsonResponse + " \u001B[0m");
+
+            channel.basicPublish(
+                    "",  // Default exchange
+                    STOCK_CONFIRMATION_QUEUE,
+                    null,
+                    jsonResponse.getBytes(StandardCharsets.UTF_8)
+            );
 
             if (allInStock) {
                 dishService.decreaseStock(productCounts);
@@ -110,14 +144,15 @@ public class RabbitMQConfig {
                 System.out.println("\u001B[31m Insufficient stock for order ID: \u001B[0m " + orderId);
             }
         } catch (Exception e) {
+            System.err.println("\u001B[31m Error processing stock check request: " + e.getMessage() + " \u001B[0m");
             e.printStackTrace();
-            
+
             try {
                 // Send error to admin log exchange
                 if (channel != null) {
                     String errorMessage = "Product_Error:" + e.getMessage();
-                    channel.basicPublish(ADMIN_LOG_EXCHANGE, "Product_Error", null, 
-                        errorMessage.getBytes(StandardCharsets.UTF_8));
+                    channel.basicPublish(ADMIN_LOG_EXCHANGE, "Product_Error", null,
+                            errorMessage.getBytes(StandardCharsets.UTF_8));
                     System.out.println("\u001B[31m Sent error to admin log: " + errorMessage + "\u001B[0m");
                 }
             } catch (IOException ioException) {
@@ -146,7 +181,6 @@ public class RabbitMQConfig {
         return true;
     }
 
-
     private double calculateTotalPrice(Map<Long, Long> productCounts) {
         double totalPrice = 0.0;
         for (Map.Entry<Long, Long> entry : productCounts.entrySet()) {
@@ -165,8 +199,6 @@ public class RabbitMQConfig {
         System.out.println("\u001B[36m Total price: $" + totalPrice + "\u001B[0m");
         return totalPrice;
     }
-
-
 
     @PreDestroy
     public void cleanup() {

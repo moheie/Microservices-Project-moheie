@@ -25,9 +25,6 @@ public class Order {
     @Column(nullable = false)
     private Long userId;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    private List<Long> productIds = new ArrayList<>();
-
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = "order_id")
     private List<OrderDish> dishes = new ArrayList<>();
@@ -43,9 +40,6 @@ public class Order {
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
-
-    public List<Long> getProductIds() { return productIds; }
-    public void setProductIds(List<Long> productIds) { this.productIds = productIds; }
 
     public List<OrderDish> getDishes() { return dishes; }
     public void setDishes(List<OrderDish> dishes) { this.dishes = dishes; }

@@ -9,19 +9,15 @@
     </button>
     
     <transition name="fade">
-      <div v-if="showNotifications" class="notification-dropdown shadow">
-        <div class="notification-header">
-          <h6 class="m-0">Notifications</h6>
-          <div class="d-flex gap-2">
-            <button v-if="notifications.length > 0" 
-                    class="btn btn-sm btn-link text-primary"
-                    @click="markAllAsRead">
-              Mark all as read
-            </button>
-            <button class="btn btn-sm btn-link text-secondary"
-                    @click="refreshNotifications">
-              <i class="bi bi-arrow-clockwise"></i>
-            </button>
+      <div v-if="showNotifications" class="notification-dropdown shadow">        <div class="notification-header">
+          <div class="d-flex justify-content-between align-items-center w-100 px-3 py-2">
+            <h6 class="m-0">Notifications</h6>
+            <a href="#" 
+               v-if="notifications.length > 0"
+               class="text-primary text-decoration-none small"
+               @click.prevent="markAllAsRead">
+               Mark all as read
+            </a>
           </div>
         </div>
         
@@ -58,7 +54,24 @@
                         {{ notification.severity }}
                       </span>
                     </div>
-                    <div class="notification-message">{{ notification.message }}</div>
+                    <div class="notification-message">
+                      <template v-if="notification.type === 'stock'">
+                        <strong>{{ notification.metadata?.productName }}</strong>
+                        <div>Quantity: {{ notification.metadata?.quantity }}</div>
+                        <div>Seller: {{ notification.metadata?.sellerCompanyName }}</div>
+                      </template>
+                      <template v-else-if="notification.type === 'order'">
+                        <strong>Order #{{ notification.metadata?.orderId }}</strong>
+                        <div>Status: {{ notification.metadata?.status }}</div>
+                      </template>
+                      <template v-else-if="notification.type === 'payment'">
+                        <strong>Order #{{ notification.metadata?.orderId }}</strong>
+                        <div class="text-danger">{{ notification.metadata?.reason }}</div>
+                      </template>
+                      <template v-else>
+                        {{ notification.message }}
+                      </template>
+                    </div>
                     <div class="notification-time">
                       {{ formatTime(notification.timestamp || notification.time) }}
                     </div>
@@ -78,8 +91,7 @@
                    @click="markAsRead(notification)">
                 <div class="notification-icon">
                   <i :class="getNotificationIcon(notification.type)"></i>
-                </div>
-                <div class="notification-content">
+                </div>                  <div class="notification-content">
                   <div class="notification-title d-flex align-items-center">
                     <span>{{ notification.title }}</span>
                     <span v-if="notification.severity" 
@@ -88,7 +100,24 @@
                       {{ notification.severity }}
                     </span>
                   </div>
-                  <div class="notification-message">{{ notification.message }}</div>
+                  <div class="notification-message">
+                    <template v-if="notification.type === 'stock'">
+                      <strong>{{ notification.metadata?.productName }}</strong>
+                      <div>Quantity: {{ notification.metadata?.quantity }}</div>
+                      <div>Seller: {{ notification.metadata?.sellerCompanyName }}</div>
+                    </template>
+                    <template v-else-if="notification.type === 'order'">
+                      <strong>Order #{{ notification.metadata?.orderId }}</strong>
+                      <div>Status: {{ notification.metadata?.status }}</div>
+                    </template>
+                    <template v-else-if="notification.type === 'payment'">
+                      <strong>Order #{{ notification.metadata?.orderId }}</strong>
+                      <div class="text-danger">{{ notification.metadata?.reason }}</div>
+                    </template>
+                    <template v-else>
+                      {{ notification.message }}
+                    </template>
+                  </div>
                   <div class="notification-time">
                     {{ formatTime(notification.timestamp || notification.time) }}
                   </div>
@@ -250,24 +279,79 @@ export default {
       console.log('NotificationBell received notification:', notification);
       
       // For notifications coming from RabbitMQ topic exchange, they might need parsing
-      if (notification.serviceName && notification.message && notification.message.includes(':')) {
+      if (notification.message && notification.message.includes(':')) {
         try {
-          const parts = notification.message.split(':', 2);
-          if (parts.length >= 2) {
-            const logMessage = parts[1];
+          const parts = notification.message.split(':');
+          let cleanNotification;
+          
+          // StockCheckListener format: "productName:quantity:sellerCompanyName:sellerId"
+          if (parts.length === 4) {
+            const productName = parts[0];
+            const quantity = parseInt(parts[1]);
+            const sellerCompanyName = parts[2];
+            const sellerId = parts[3];
             
-            // Create a cleaner notification object
-            const cleanNotification = {
-              ...notification,
-              type: notification.serviceName.toLowerCase(),
-              title: `${notification.serviceName} ${notification.severity || 'Notification'}`,
-              message: logMessage.trim(),
-              severity: notification.severity || 'Info',
+            cleanNotification = {
+              type: 'stock',
+              title: 'Stock Alert',
+              message: `Product '${productName}' from ${sellerCompanyName} has ${quantity} units remaining`,
+              severity: quantity < 5 ? 'Error' : 'Warning',
+              serviceName: 'Stock',
               read: false,
-              id: notification.id || `${notification.serviceName.toLowerCase()}_${Date.now()}`,
-              timestamp: notification.timestamp || new Date().toISOString()
+              id: `stock_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              metadata: {
+                productName,
+                quantity,
+                sellerCompanyName,
+                sellerId
+              }
             };
+          }
+          // OrderConfirmationListener format: "orderId:status:userId"
+          else if (parts.length === 3) {
+            const orderId = parts[0];
+            const status = parts[1];
+            const userId = parts[2];
             
+            cleanNotification = {
+              type: 'order',
+              title: 'Order Status Update',
+              message: `Order #${orderId} ${status.toLowerCase()}`,
+              severity: status.toLowerCase() === 'failed' ? 'Error' : 'Info',
+              serviceName: 'Order',
+              read: false,
+              id: `order_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              metadata: {
+                orderId: parseInt(orderId),
+                status,
+                userId: parseInt(userId)
+              }
+            };
+          }
+          // PaymentFailureListener format: "orderId:reason"
+          else if (parts.length >= 2) {
+            const orderId = parts[0];
+            const reason = parts.slice(1).join(':');
+            
+            cleanNotification = {
+              type: 'payment',
+              title: 'Payment Failed',
+              message: `Payment failed for order #${orderId}`,
+              severity: 'Error',
+              serviceName: 'Payment',
+              read: false,
+              id: `payment_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              metadata: {
+                orderId: parseInt(orderId),
+                reason: reason.trim()
+              }
+            };
+          }
+
+          if (cleanNotification) {
             this.addNotification(cleanNotification);
             return;
           }
@@ -276,10 +360,21 @@ export default {
         }
       }
       
-      // Standard notification handling
-      this.addNotification(notification);
+      // If we get here, handle it as a standard notification
+      const standardNotification = {
+        type: notification.type || 'info',
+        title: notification.title || 'Notification',
+        message: notification.message || 'No message provided',
+        severity: notification.severity || 'Info',
+        serviceName: notification.serviceName || 'System',
+        read: false,
+        id: `notification_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        metadata: notification.metadata || {}
+      };
+      
+      this.addNotification(standardNotification);
     },
-
     addNotification(notification) {
       // Skip duplicates (check by ID if available)
       if (notification.id && this.notifications.some(n => n.id === notification.id)) {
@@ -448,7 +543,7 @@ export default {
         system: 'bi bi-hdd-network',
         admin: 'bi bi-shield-check'
       };
-      return icons[type] || 'bi bi-bell';
+      return icons[type?.toLowerCase()] || 'bi bi-bell';
     },
 
     getNotificationClass(type) {
@@ -462,7 +557,7 @@ export default {
         order: 'notification-order',
         payment: 'notification-payment'
       };
-      return classes[type] || '';
+      return classes[type?.toLowerCase()] || '';
     },
 
     getSeverityClass(severity) {
@@ -567,12 +662,22 @@ export default {
 }
 
 .notification-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #eee;
-  background-color: #f8f9fa;
+  background-color: white;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.notification-header h6 {
+  font-size: 1rem;
+  color: #212529;
+}
+
+.notification-header a {
+  font-size: 0.875rem;
+  color: #0d6efd !important;
+}
+
+.notification-header a:hover {
+  text-decoration: underline !important;
 }
 
 .notification-body {

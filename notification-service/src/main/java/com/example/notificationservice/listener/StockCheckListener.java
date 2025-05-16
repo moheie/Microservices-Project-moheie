@@ -47,7 +47,7 @@ public class StockCheckListener {
                         "Error",
                         String.format("CRITICAL: Product '%s' from %s has very low stock: %d units remaining", 
                             productName, sellerCompanyName, quantity),
-                        sellerId
+                        1L
                     );
 
                     // Create admin notification

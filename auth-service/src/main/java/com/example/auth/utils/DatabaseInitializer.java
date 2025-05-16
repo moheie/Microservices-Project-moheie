@@ -30,6 +30,14 @@ public class DatabaseInitializer {
     private static final String ADMIN_USERNAME = "admin";
     private static final String ADMIN_PASSWORD = "admin123";
     private static final String ADMIN_EMAIL = "admin@fooddelivery.com";
+    private static final String USER_USERNAME = "user";
+    private static final String USER_PASSWORD = "user123";
+    private static final String USER_EMAIL = "user@user.com";
+    private static final String RESTAURANT_USERNAME = "food";
+    private static final String RESTAURANT_PASSWORD = "food1234";
+    private static final String RESTAURANT_EMAIL = "resturant@resturant.com";
+    private static final String RESTAURANT_NAME = "food";
+
 
     @PostConstruct
     public void init() {
@@ -59,6 +67,23 @@ public class DatabaseInitializer {
                         .setParameter(2, encryptedPassword)
                         .setParameter(3, ADMIN_EMAIL)
                         .setParameter(4, Role.ADMIN.toString())
+                        .executeUpdate();
+                // Create the user role
+                entityManager.createNativeQuery(
+                                "INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)")
+                        .setParameter(1, USER_USERNAME)
+                        .setParameter(2, USER_PASSWORD)
+                        .setParameter(3, USER_EMAIL)
+                        .setParameter(4, Role.CUSTOMER.toString())
+                        .executeUpdate();
+                // Create the restaurant representative role
+                entityManager.createNativeQuery(
+                                "INSERT INTO users (username, password, email, role, companyName) VALUES (?, ?, ?, ?,?)")
+                        .setParameter(1, RESTAURANT_USERNAME)
+                        .setParameter(2, RESTAURANT_PASSWORD)
+                        .setParameter(3, RESTAURANT_EMAIL)
+                        .setParameter(4, Role.RESTAURANT_REPRESENTATIVE.toString())
+                        .setParameter(5, RESTAURANT_NAME)
                         .executeUpdate();
 
                 System.out.println("Admin user created successfully");
