@@ -113,7 +113,3 @@ Contributions are welcome! Please open issues and pull requests for bug fixes, i
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-> _Replace service and directory names where appropriate, and add more detailed instructions or architecture diagrams as your project grows._
